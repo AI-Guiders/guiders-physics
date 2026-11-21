@@ -37,6 +37,8 @@ public class GuidersPhysicsSuiteTests
             Assert.Equal(Ring9.IvSeed, CuboctahedronAutomatonKernel.TwoPointWorldlineInterpolate(Ring9.IvSeed, rx, Ring9.DPhiDisc, Ring9.Zero));
             Assert.Equal(rx, CuboctahedronAutomatonKernel.TwoPointWorldlineInterpolate(Ring9.IvSeed, rx, Ring9.DPhiDisc, Ring9.MuVac));
         }
+
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(2), new(2), new(2), Ring9.Zero));
     }
 
     [Fact]

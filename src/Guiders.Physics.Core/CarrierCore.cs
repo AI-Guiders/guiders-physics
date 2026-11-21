@@ -461,6 +461,15 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 SelectLeadingGate(Ring9 g0, Ring9 g1)
+    {
+        ushort a0 = g0.AbsWrap.Bits9;
+        ushort a1 = g1.AbsWrap.Bits9;
+        ushort diff = (ushort)(1 - (1 / ((a1 / (a0 + 1)) + 1)));
+        return new Ring9((ushort)(diff * g1.Bits9 + (1 - diff) * g0.Bits9));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VerletCell72 EvaluateClosedFormWorldlineCellAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 t, Ring9 atomicSlopeV0 = default)
     {
         Ring9 mu = Iv263MuAt(dz, dy, dx);
@@ -468,10 +477,11 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 p1Init = Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
         Ring9 gate0 = Compute12NeighborHolonomyGateAt(dz, dy, dx, Ring9.Zero);
         Ring9 gate1 = Compute12NeighborHolonomyGateAt(dz, dy, dx, Ring9.MuVac);
+        Ring9 leadGate = SelectLeadingGate(gate0, gate1);
 
         var cell0 = VerletCell72.Create(mu, p0Init, p0Init - atomicSlopeV0, mu, p1Init, p1Init - atomicSlopeV0);
-        cell0.Gate0 = gate0;
-        cell0.Gate1 = gate1;
+        cell0.Gate0 = leadGate;
+        cell0.Gate1 = leadGate;
         return cell0.EvaluateClosedFormAtTick(t);
     }
 }
