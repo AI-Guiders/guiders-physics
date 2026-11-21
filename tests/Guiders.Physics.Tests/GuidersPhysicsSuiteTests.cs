@@ -110,5 +110,19 @@ public class GuidersPhysicsSuiteTests
             world.SyncWithPhysicalAtom(atomPhase);
             Assert.Equal(targetTick, world.CurrentTick);
         }
+
+        // Verify both clock modes (1. FreeRunning, 2. AtomSynced) and gameplay event injection (EmitGameEvent):
+        world.ClockMode = WorldClockMode.FreeRunning;
+        world.JumpToTick(new Ring9(10));
+        world.AdvanceClock();
+        Assert.Equal(new Ring9(11), world.CurrentTick);
+
+        var beforeExplosion = world.GetCellAtCurrentTick(dz, dy, dx);
+        world.EmitGameEvent(dz, dy, dx, Ring9.KP, Ring9.CollapsePhi);
+        var afterExplosion = world.GetCellAtCurrentTick(dz, dy, dx);
+        Assert.NotEqual(beforeExplosion.Phi0Curr, afterExplosion.Phi0Curr);
+
+        world.ClockMode = WorldClockMode.AtomSynced;
+        world.AdvanceClock();
     }
 }
