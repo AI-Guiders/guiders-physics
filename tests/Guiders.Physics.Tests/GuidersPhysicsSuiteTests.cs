@@ -124,74 +124,11 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.MinusOne, gWallPos + gWallNeg);
 
         const ushort N = 24;
-        Ring9 center = Ring9.NLinks; // 12
-        Ring9[,,] mu = new Ring9[N, N, N];
-        Ring9[,,] p0 = new Ring9[N, N, N];
-        Ring9[,,] p1 = new Ring9[N, N, N];
-        Ring9[,,] q0 = new Ring9[N, N, N];
-        Ring9[,,] q1 = new Ring9[N, N, N];
+        var carrier = new CuboctahedronCarrier(new Ring9(N));
+        carrier.StepForward();
+        carrier.StepForward();
 
-        for (ushort iz = 0; iz < N; iz++)
-            for (ushort iy = 0; iy < N; iy++)
-                for (ushort ix = 0; ix < N; ix++)
-                {
-                    Ring9 dz = new Ring9(iz) - center;
-                    Ring9 dy = new Ring9(iy) - center;
-                    Ring9 dx = new Ring9(ix) - center;
-                    mu[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263MuAt(dz, dy, dx);
-                    p0[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero);
-                    p1[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
-                    q0[iz, iy, ix] = p0[iz, iy, ix];
-                    q1[iz, iy, ix] = p1[iz, iy, ix];
-                }
-
-        static (Ring9[,,] Nxt0, Ring9[,,] Nxt1, int ActiveGates) StepGrid3D(
-            Ring9[,,] m, Ring9[,,] c0, Ring9[,,] c1, Ring9[,,] pst0, Ring9[,,] pst1)
-        {
-            Ring9[,,] n0 = new Ring9[N, N, N];
-            Ring9[,,] n1 = new Ring9[N, N, N];
-            int active = 0;
-
-            Ring9 M(int z, int y, int x) => m[(z + N) % N, (y + N) % N, (x + N) % N];
-            Ring9 P0(int z, int y, int x) => c0[(z + N) % N, (y + N) % N, (x + N) % N];
-            Ring9 P1(int z, int y, int x) => c1[(z + N) % N, (y + N) % N, (x + N) % N];
-
-            for (int z = 0; z < N; z++)
-                for (int y = 0; y < N; y++)
-                    for (int x = 0; x < N; x++)
-                    {
-                        Ring9 gate = CuboctahedronAutomatonKernel.ComputeTwoLaneCellGate(
-                            M(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x),
-                            M(z, y - 1, x - 1), P0(z, y - 1, x - 1), M(z, y - 1, x + 1), P0(z, y - 1, x + 1),
-                            M(z, y + 1, x - 1), P0(z, y + 1, x - 1), M(z, y + 1, x + 1), P0(z, y + 1, x + 1),
-                            M(z - 1, y, x - 1), P0(z - 1, y, x - 1), M(z - 1, y, x + 1), P0(z - 1, y, x + 1),
-                            M(z + 1, y, x - 1), P0(z + 1, y, x - 1), M(z + 1, y, x + 1), P0(z + 1, y, x + 1),
-                            M(z - 1, y - 1, x), P0(z - 1, y - 1, x), M(z - 1, y + 1, x), P0(z - 1, y + 1, x),
-                            M(z + 1, y - 1, x), P0(z + 1, y - 1, x), M(z + 1, y + 1, x), P0(z + 1, y + 1, x),
-                            M(z, y - 1, x - 1), P1(z, y - 1, x - 1), M(z, y - 1, x + 1), P1(z, y - 1, x + 1),
-                            M(z, y + 1, x - 1), P1(z, y + 1, x - 1), M(z, y + 1, x + 1), P1(z, y + 1, x + 1),
-                            M(z - 1, y, x - 1), P1(z - 1, y, x - 1), M(z - 1, y, x + 1), P1(z - 1, y, x + 1),
-                            M(z + 1, y, x - 1), P1(z + 1, y, x - 1), M(z + 1, y, x + 1), P1(z + 1, y, x + 1),
-                            M(z - 1, y - 1, x), P1(z - 1, y - 1, x), M(z - 1, y + 1, x), P1(z - 1, y + 1, x),
-                            M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
-                            Ring9.MuVac);
-
-                        if (gate != Ring9.Zero) active++;
-                        var cell = VerletCell72.Create(M(z, y, x), c0[z, y, x], pst0[z, y, x], M(z, y, x), c1[z, y, x], pst1[z, y, x]);
-                        var stepped = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate);
-                        n0[z, y, x] = stepped.Phi0Curr;
-                        n1[z, y, x] = stepped.Phi1Curr;
-                    }
-            return (n0, n1, active);
-        }
-
-        var (st1_0, st1_1, act0) = StepGrid3D(mu, p0, p1, q0, q1);
-        var (st2_0, _,     act1) = StepGrid3D(mu, st1_0, st1_1, p0, p1);
-
-        Assert.Equal(543, act0);
-        Assert.Equal(578, act1);
-
-        Ring9 P2(int z, int y, int x) => st2_0[(z + N) % N, (y + N) % N, (x + N) % N];
+        Ring9 P2(int z, int y, int x) => carrier[new((ushort)z), new((ushort)y), new((ushort)x)].Phi0Curr;
         Ring9 NXY(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z, y + 1, x + 1), P2(z, y + 1, x));
         Ring9 NXZ(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z + 1, y, x + 1), P2(z + 1, y, x));
         Ring9 NYZ(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y + 1, x), P2(z + 1, y + 1, x), P2(z + 1, y, x));
@@ -214,6 +151,12 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(26), sumYZ);
         Assert.Equal(new Ring9(34), sumXZ);
         Assert.Equal(new Ring9(86), sumXY + sumYZ + sumXZ);
+
+        // Verify exact 3D time reversal back to t = 0 via carrier.StepBackward()!
+        carrier.StepBackward();
+        carrier.StepBackward();
+        Assert.Equal(Ring9.Zero, carrier.Tick);
+        Assert.Equal(CuboctahedronAutomatonKernel.Iv263PhiAt(Ring9.Zero, new(2), new(2), Ring9.MuVac), carrier[new(12), new(14), new(14)].Phi1Curr);
     }
 
     [Fact]
@@ -237,107 +180,56 @@ public class GuidersPhysicsSuiteTests
     [Fact]
     public void Core_7_RealReactionSimulations_InertSolventAndBelousovZhabotinsky13TickTrajectory_MatchesPythonBitForBit()
     {
-        const int N = 7;
-        const int C = 3;
+        const ushort N = 7;
+        Ring9 c = new(3);
 
-        static (Ring9[,,] Mu, Ring9[,,] P0, Ring9[,,] P1) MakeReactionGrid(Ring9 phiEnv)
+        static CuboctahedronCarrier MakeReactionCarrier(Ring9 phiEnv)
         {
-            Ring9[,,] m = new Ring9[N, N, N];
-            Ring9[,,] p0 = new Ring9[N, N, N];
-            Ring9[,,] p1 = new Ring9[N, N, N];
-            for (int iz = 0; iz < N; iz++)
+            var carrier = new CuboctahedronCarrier(new Ring9(N));
+            for (ushort iz = 0; iz < N; iz++)
             {
-                int dz = iz - C;
-                for (int iy = 0; iy < N; iy++)
+                int dz = iz - 3;
+                for (ushort iy = 0; iy < N; iy++)
                 {
-                    int dy = iy - C;
-                    for (int ix = 0; ix < N; ix++)
+                    int dy = iy - 3;
+                    for (ushort ix = 0; ix < N; ix++)
                     {
-                        int dx = ix - C;
-                        m[iz, iy, ix] = Ring9.NPhi;
+                        int dx = ix - 3;
                         Ring9 p = (dz == 0 && dy == 0 && dx == 0)
                             ? Ring9.Zero
                             : ((4 * dz + 2 * dy + dx) >= 0 ? phiEnv : -phiEnv);
-                        p0[iz, iy, ix] = p;
-                        p1[iz, iy, ix] = p;
+                        carrier[new(iz), new(iy), new(ix)] = VerletCell72.Create(Ring9.NPhi, p, p, Ring9.NPhi, p, p);
                     }
                 }
             }
-            return (m, p0, p1);
-        }
-
-        static (Ring9[,,] Nxt0, Ring9[,,] Nxt1) StepReactionGrid(
-            Ring9[,,] m, Ring9[,,] c0, Ring9[,,] c1, Ring9[,,] pst0, Ring9[,,] pst1)
-        {
-            Ring9[,,] n0 = new Ring9[N, N, N];
-            Ring9[,,] n1 = new Ring9[N, N, N];
-            Ring9 M(int z, int y, int x) => m[(z + N) % N, (y + N) % N, (x + N) % N];
-            Ring9 P0(int z, int y, int x) => c0[(z + N) % N, (y + N) % N, (x + N) % N];
-            Ring9 P1(int z, int y, int x) => c1[(z + N) % N, (y + N) % N, (x + N) % N];
-
-            for (int z = 0; z < N; z++)
-                for (int y = 0; y < N; y++)
-                    for (int x = 0; x < N; x++)
-                    {
-                        Ring9 gate = CuboctahedronAutomatonKernel.ComputeTwoLaneCellGate(
-                            M(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x),
-                            M(z, y - 1, x - 1), P0(z, y - 1, x - 1), M(z, y - 1, x + 1), P0(z, y - 1, x + 1),
-                            M(z, y + 1, x - 1), P0(z, y + 1, x - 1), M(z, y + 1, x + 1), P0(z, y + 1, x + 1),
-                            M(z - 1, y, x - 1), P0(z - 1, y, x - 1), M(z - 1, y, x + 1), P0(z - 1, y, x + 1),
-                            M(z + 1, y, x - 1), P0(z + 1, y, x - 1), M(z + 1, y, x + 1), P0(z + 1, y, x + 1),
-                            M(z - 1, y - 1, x), P0(z - 1, y - 1, x), M(z - 1, y + 1, x), P0(z - 1, y + 1, x),
-                            M(z + 1, y - 1, x), P0(z + 1, y - 1, x), M(z + 1, y + 1, x), P0(z + 1, y + 1, x),
-                            M(z, y - 1, x - 1), P1(z, y - 1, x - 1), M(z, y - 1, x + 1), P1(z, y - 1, x + 1),
-                            M(z, y + 1, x - 1), P1(z, y + 1, x - 1), M(z, y + 1, x + 1), P1(z, y + 1, x + 1),
-                            M(z - 1, y, x - 1), P1(z - 1, y, x - 1), M(z - 1, y, x + 1), P1(z - 1, y, x + 1),
-                            M(z + 1, y, x - 1), P1(z + 1, y, x - 1), M(z + 1, y, x + 1), P1(z + 1, y, x + 1),
-                            M(z - 1, y - 1, x), P1(z - 1, y - 1, x), M(z - 1, y + 1, x), P1(z - 1, y + 1, x),
-                            M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
-                            Ring9.MuVac);
-                        var cell = VerletCell72.Create(M(z, y, x), c0[z, y, x], pst0[z, y, x], M(z, y, x), c1[z, y, x], pst1[z, y, x]);
-                        var stepped = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate);
-                        n0[z, y, x] = stepped.Phi0Curr;
-                        n1[z, y, x] = stepped.Phi1Curr;
-                    }
-            return (n0, n1);
+            return carrier;
         }
 
         // 1) Inert solvent (phi_env = 41): reaction does NOT proceed (center phase stays 0 -> 0)
-        var (mInert, p0Inert, p1Inert) = MakeReactionGrid(Ring9.DPhiDisc);
-        var (n0Inert, _) = StepReactionGrid(mInert, p0Inert, p1Inert, p0Inert, p1Inert);
-        Assert.Equal(Ring9.Zero, n0Inert[C, C, C]);
+        var inertCarrier = MakeReactionCarrier(Ring9.DPhiDisc);
+        inertCarrier.StepForward();
+        Assert.Equal(Ring9.Zero, inertCarrier[c, c, c].Phi0Curr);
 
         // 2) Catalytic Belousov-Zhabotinsky oscillation (phi_env = 139 = CollapsePhi):
-        // Exact 13-tick center trajectory from mt_ca/carrier_core.py:
-        // [0, 352, 361, 212, 214, 61, 262, 301, 95, 52, 121, 90, 59, 427]
         ushort[] expectedBzPhases = [0, 352, 361, 212, 214, 61, 262, 301, 95, 52, 121, 90, 59, 427];
-        var (mCat, cur0, cur1) = MakeReactionGrid(Ring9.CollapsePhi);
-        var pst0 = cur0;
-        var pst1 = cur1;
+        var bzCarrier = MakeReactionCarrier(Ring9.CollapsePhi);
 
         for (int t = 1; t <= 13; t++)
         {
-            var (nxt0, nxt1) = StepReactionGrid(mCat, cur0, cur1, pst0, pst1);
-            pst0 = cur0;
-            pst1 = cur1;
-            cur0 = nxt0;
-            cur1 = nxt1;
+            bzCarrier.StepForward();
+            Assert.Equal(new Ring9(expectedBzPhases[t]), bzCarrier[c, c, c].Phi0Curr);
 
-            Assert.Equal(new Ring9(expectedBzPhases[t]), cur0[C, C, C]);
-            var centerCell = VerletCell72.Create(Ring9.NPhi, cur0[C, C, C], pst0[C, C, C], Ring9.NPhi, cur1[C, C, C], pst1[C, C, C]);
-            var ro = CuboctahedronAutomatonKernel.ReadCellSensors(centerCell);
+            var ro = bzCarrier.ReadSensors(c, c, c);
             Assert.Equal(Ring9.QSquare, ro.ColorR + ro.ColorG + ro.ColorB);
 
             if (t == 1)
             {
-                // At t=1 (phi=352, oxidized blue-green ferroin state): RGB = (0, 96, 32)
                 Assert.Equal(Ring9.Zero, ro.ColorR);
                 Assert.Equal(new Ring9(96), ro.ColorG);
                 Assert.Equal(new Ring9(32), ro.ColorB);
             }
             else if (t == 5)
             {
-                // At t=5 (phi=61, reduced red-orange ferroin state): RGB = (67, 61, 0)
                 Assert.Equal(new Ring9(67), ro.ColorR);
                 Assert.Equal(new Ring9(61), ro.ColorG);
                 Assert.Equal(Ring9.Zero, ro.ColorB);
@@ -349,55 +241,13 @@ public class GuidersPhysicsSuiteTests
     public void Core_8_EdgeMassFluxTransport_MatchesPythonPolarEdgeFluxStepQCoreBitForBit()
     {
         const ushort N = 16;
-        Ring9 center = new(8);
-        Ring9[,,] mu = new Ring9[N, N, N];
-        Ring9[,,] p0 = new Ring9[N, N, N];
-        Ring9[,,] p1 = new Ring9[N, N, N];
+        var carrier = new CuboctahedronCarrier(new Ring9(N));
+        carrier.StepForward();
 
-        for (ushort iz = 0; iz < N; iz++)
-            for (ushort iy = 0; iy < N; iy++)
-                for (ushort ix = 0; ix < N; ix++)
-                {
-                    Ring9 dz = new Ring9(iz) - center;
-                    Ring9 dy = new Ring9(iy) - center;
-                    Ring9 dx = new Ring9(ix) - center;
-                    mu[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263MuAt(dz, dy, dx);
-                    p0[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero);
-                    p1[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
-                }
+        VerletCell72 Cell(int z, int y, int x) => carrier[new((ushort)((z + N) % N)), new((ushort)((y + N) % N)), new((ushort)((x + N) % N))];
 
-        Ring9 M(int z, int y, int x) => mu[(z + N) % N, (y + N) % N, (x + N) % N];
-        Ring9 P0(int z, int y, int x) => p0[(z + N) % N, (y + N) % N, (x + N) % N];
-        Ring9 P1(int z, int y, int x) => p1[(z + N) % N, (y + N) % N, (x + N) % N];
-
-        Ring9[,,] st1_0 = new Ring9[N, N, N];
-        for (int z = 0; z < N; z++)
-            for (int y = 0; y < N; y++)
-                for (int x = 0; x < N; x++)
-                {
-                    Ring9 gate = CuboctahedronAutomatonKernel.ComputeTwoLaneCellGate(
-                        M(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x),
-                        M(z, y - 1, x - 1), P0(z, y - 1, x - 1), M(z, y - 1, x + 1), P0(z, y - 1, x + 1),
-                        M(z, y + 1, x - 1), P0(z, y + 1, x - 1), M(z, y + 1, x + 1), P0(z, y + 1, x + 1),
-                        M(z - 1, y, x - 1), P0(z - 1, y, x - 1), M(z - 1, y, x + 1), P0(z - 1, y, x + 1),
-                        M(z + 1, y, x - 1), P0(z + 1, y, x - 1), M(z + 1, y, x + 1), P0(z + 1, y, x + 1),
-                        M(z - 1, y - 1, x), P0(z - 1, y - 1, x), M(z - 1, y + 1, x), P0(z - 1, y + 1, x),
-                        M(z + 1, y - 1, x), P0(z + 1, y - 1, x), M(z + 1, y + 1, x), P0(z + 1, y + 1, x),
-                        M(z, y - 1, x - 1), P1(z, y - 1, x - 1), M(z, y - 1, x + 1), P1(z, y - 1, x + 1),
-                        M(z, y + 1, x - 1), P1(z, y + 1, x - 1), M(z, y + 1, x + 1), P1(z, y + 1, x + 1),
-                        M(z - 1, y, x - 1), P1(z - 1, y, x - 1), M(z - 1, y, x + 1), P1(z - 1, y, x + 1),
-                        M(z + 1, y, x - 1), P1(z + 1, y, x - 1), M(z + 1, y, x + 1), P1(z + 1, y, x + 1),
-                        M(z - 1, y - 1, x), P1(z - 1, y - 1, x), M(z - 1, y + 1, x), P1(z - 1, y + 1, x),
-                        M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
-                        Ring9.MuVac);
-                    var cell = VerletCell72.Create(M(z, y, x), P0(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x), P1(z, y, x));
-                    st1_0[z, y, x] = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate).Phi0Curr;
-                }
-
-        Ring9 P1At(int z, int y, int x) => st1_0[(z + N) % N, (y + N) % N, (x + N) % N];
-
-        // In Python `torch.roll(t, shifts=(dz, dy, dx))` shifts by `(z - dz, y - dy, x - dx)` for `_FCC_OFFSETS[:6]`:
-        // (-1,-1,0), (-1,1,0), (-1,0,-1), (-1,0,1), (0,-1,-1), (0,-1,1)
+        // In Python `torch.roll(t, shifts=(dz, dy, dx))` reads `(z - dz, y - dy, x - dx)` for `_FCC_OFFSETS[:6]`:
+        // (1,1,0), (1,-1,0), (-1,1,0), (-1,-1,0), (1,0,1), (1,0,-1)
         Bus36 totalDivJ = Bus36.Zero;
         int nonZeroDivJ = 0;
         Ring9 sampleMu882 = Ring9.Zero;
@@ -407,14 +257,22 @@ public class GuidersPhysicsSuiteTests
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
                 {
+                    var cur = Cell(z, y, x);
+                    var p0 = Cell(z - 1, y - 1, x);     var m0 = Cell(z + 1, y + 1, x);
+                    var p1 = Cell(z - 1, y + 1, x);     var m1 = Cell(z + 1, y - 1, x);
+                    var p2 = Cell(z + 1, y - 1, x);     var m2 = Cell(z - 1, y + 1, x);
+                    var p3 = Cell(z + 1, y + 1, x);     var m3 = Cell(z - 1, y - 1, x);
+                    var p4 = Cell(z - 1, y,     x - 1); var m4 = Cell(z + 1, y,     x + 1);
+                    var p5 = Cell(z - 1, y,     x + 1); var m5 = Cell(z + 1, y,     x - 1);
+
                     var (muNext, divJ) = CuboctahedronAutomatonKernel.Compute12EdgeMassFluxStepAtCell(
-                        M(z, y, x), P1At(z, y, x),
-                        M(z + 1, y + 1, x), P1At(z + 1, y + 1, x), M(z - 1, y - 1, x), P1At(z - 1, y - 1, x),
-                        M(z + 1, y - 1, x), P1At(z + 1, y - 1, x), M(z - 1, y + 1, x), P1At(z - 1, y + 1, x),
-                        M(z + 1, y, x + 1), P1At(z + 1, y, x + 1), M(z - 1, y, x - 1), P1At(z - 1, y, x - 1),
-                        M(z + 1, y, x - 1), P1At(z + 1, y, x - 1), M(z - 1, y, x + 1), P1At(z - 1, y, x + 1),
-                        M(z, y + 1, x + 1), P1At(z, y + 1, x + 1), M(z, y - 1, x - 1), P1At(z, y - 1, x - 1),
-                        M(z, y + 1, x - 1), P1At(z, y + 1, x - 1), M(z, y - 1, x + 1), P1At(z, y - 1, x + 1));
+                        cur.Mu0, cur.Phi0Curr,
+                        p0.Mu0, p0.Phi0Curr, m0.Mu0, m0.Phi0Curr,
+                        p1.Mu0, p1.Phi0Curr, m1.Mu0, m1.Phi0Curr,
+                        p2.Mu0, p2.Phi0Curr, m2.Mu0, m2.Phi0Curr,
+                        p3.Mu0, p3.Phi0Curr, m3.Mu0, m3.Phi0Curr,
+                        p4.Mu0, p4.Phi0Curr, m4.Mu0, m4.Phi0Curr,
+                        p5.Mu0, p5.Phi0Curr, m5.Mu0, m5.Phi0Curr);
 
                     totalDivJ = totalDivJ + divJ;
                     if (divJ != Bus36.Zero) nonZeroDivJ++;
@@ -425,8 +283,6 @@ public class GuidersPhysicsSuiteTests
                     }
                 }
 
-        // Exact match with Python polar_edge_flux_step_q_core:
-        // div_j_sum == 0, div_j_nonzero == 1067, div_j[8,8,2] == 15, mu_next[8,8,2] == 12!
         Assert.Equal(Bus36.Zero, totalDivJ);
         Assert.Equal(1067, nonZeroDivJ);
         Assert.Equal(Bus36.FromUnsignedRing9(new Ring9(15)), sampleDivJ882);
