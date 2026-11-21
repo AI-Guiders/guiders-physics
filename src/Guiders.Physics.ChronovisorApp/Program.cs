@@ -8,60 +8,186 @@ using Guiders.Physics.Engine;
 
 namespace Guiders.Physics.ChronovisorApp;
 
+public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
+{
+    private const int SampleRate = 22050;
+    private const int Channels = 2;
+    private const int BufferSamples = 735;
+    private const int NumBuffers = 4;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WaveFormatEx
+    {
+        public ushort wFormatTag;
+        public ushort nChannels;
+        public uint nSamplesPerSec;
+        public uint nAvgBytesPerSec;
+        public ushort nBlockAlign;
+        public ushort wBitsPerSample;
+        public ushort cbSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WaveHdr
+    {
+        public IntPtr lpData;
+        public uint dwBufferLength;
+        public uint dwBytesRecorded;
+        public IntPtr dwUser;
+        public uint dwFlags;
+        public uint dwLoops;
+        public IntPtr lpNext;
+        public IntPtr reserved;
+    }
+
+    [DllImport("winmm.dll")]
+    private static extern int waveOutOpen(out IntPtr hWaveOut, int uDeviceID, ref WaveFormatEx lpFormat, IntPtr dwCallback, IntPtr dwInstance, uint dwFlags);
+
+    [DllImport("winmm.dll")]
+    private static extern int waveOutPrepareHeader(IntPtr hWaveOut, IntPtr lpWaveOutHdr, uint uSize);
+
+    [DllImport("winmm.dll")]
+    private static extern int waveOutWrite(IntPtr hWaveOut, IntPtr lpWaveOutHdr, uint uSize);
+
+    [DllImport("winmm.dll")]
+    private static extern int waveOutReset(IntPtr hWaveOut);
+
+    [DllImport("winmm.dll")]
+    private static extern int waveOutClose(IntPtr hWaveOut);
+
+    private IntPtr _hWaveOut;
+    private readonly IntPtr[] _hdrPtrs = new IntPtr[NumBuffers];
+    private readonly IntPtr[] _bufPtrs = new IntPtr[NumBuffers];
+    private int _curBuf;
+    private Ring9 _carrierPhaseL = Ring9.Zero;
+    private Ring9 _carrierPhaseR = Ring9.Zero;
+    public bool IsOpen { get; private set; }
+
+    public LiveWinMmStereoAudioOut()
+    {
+        var fmt = new WaveFormatEx
+        {
+            wFormatTag = 1,
+            nChannels = Channels,
+            nSamplesPerSec = SampleRate,
+            wBitsPerSample = 16,
+            nBlockAlign = (ushort)(Channels * 2),
+            nAvgBytesPerSec = SampleRate * Channels * 2,
+            cbSize = 0
+        };
+
+        if (waveOutOpen(out _hWaveOut, -1, ref fmt, IntPtr.Zero, IntPtr.Zero, 0) == 0)
+        {
+            IsOpen = true;
+            uint byteLen = BufferSamples * Channels * 2;
+            for (int i = 0; i < NumBuffers; i++)
+            {
+                _bufPtrs[i] = Marshal.AllocHGlobal((int)byteLen);
+                _hdrPtrs[i] = Marshal.AllocHGlobal(sizeof(WaveHdr));
+                var hdr = new WaveHdr
+                {
+                    lpData = _bufPtrs[i],
+                    dwBufferLength = byteLen,
+                    dwFlags = 0
+                };
+                Marshal.StructureToPtr(hdr, _hdrPtrs[i], false);
+                waveOutPrepareHeader(_hWaveOut, _hdrPtrs[i], (uint)sizeof(WaveHdr));
+            }
+        }
+    }
+
+    public void PushDirectReadoutAudio(MultimodalReadout9 leftReadout, MultimodalReadout9 rightReadout)
+    {
+        if (!IsOpen) return;
+
+        IntPtr hdrPtr = _hdrPtrs[_curBuf];
+        var hdr = Marshal.PtrToStructure<WaveHdr>(hdrPtr);
+        if ((hdr.dwFlags & 0x10) != 0)
+        {
+            _curBuf = (_curBuf + 1) % NumBuffers;
+            hdrPtr = _hdrPtrs[_curBuf];
+            hdr = Marshal.PtrToStructure<WaveHdr>(hdrPtr);
+            if ((hdr.dwFlags & 0x10) != 0) return;
+        }
+
+        Ring9 stepL = Ring9.DOutVertex + new Ring9((ushort)(leftReadout.AcousticWave.Bits9 >> 6));
+        Ring9 stepR = Ring9.DOutVertex + new Ring9((ushort)(rightReadout.AcousticWave.Bits9 >> 6));
+
+        short* pcm = (short*)_bufPtrs[_curBuf];
+        for (int i = 0; i < BufferSamples; i++)
+        {
+            _carrierPhaseL = _carrierPhaseL + stepL;
+            _carrierPhaseR = _carrierPhaseR + stepR;
+
+            short waveL = (short)((_carrierPhaseL.ProjS.Bits9 - 256) * 18);
+            short waveR = (short)((_carrierPhaseR.ProjS.Bits9 - 256) * 18);
+            pcm[2 * i] = waveL;
+            pcm[2 * i + 1] = waveR;
+        }
+
+        waveOutWrite(_hWaveOut, hdrPtr, (uint)sizeof(WaveHdr));
+        _curBuf = (_curBuf + 1) % NumBuffers;
+    }
+
+    public void Dispose()
+    {
+        if (IsOpen)
+        {
+            IsOpen = false;
+            waveOutReset(_hWaveOut);
+            waveOutClose(_hWaveOut);
+            for (int i = 0; i < NumBuffers; i++)
+            {
+                Marshal.FreeHGlobal(_bufPtrs[i]);
+                Marshal.FreeHGlobal(_hdrPtrs[i]);
+            }
+        }
+    }
+}
+
 public sealed class ChronovisorForm : Form
 {
-    private const int ViewW = 64;
-    private const int ViewH = 48;
+    private const int ViewW = 48;
+    private const int ViewH = 36;
 
     private readonly CuboctWorldScene3D _world = new(WorldClockMode.AtomSynced);
     private readonly Bitmap _bmp = new(ViewW, ViewH, PixelFormat.Format32bppRgb);
     private readonly int[] _pixels = new int[ViewW * ViewH];
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 33 };
+    private readonly LiveWinMmStereoAudioOut _audio = new();
 
-    private int _offsetX;
-    private int _offsetY;
-    private int _offsetZ;
-    private int _offsetTau;
-    private bool _freezeAnchor;
-    private bool _audioEnabled;
-
-    private Ring9 _lastPhiSi = Ring9.IvSeed;
-    private Ring9 _lastDphiSi = Ring9.Zero;
-    private Ring9 _anchorXNow = Ring9.Zero;
-    private Ring9 _anchorTauNow = Ring9.Zero;
-
-    [DllImport("winmm.dll")]
-    private static extern bool Beep(uint dwFreq, uint dwDuration);
+    private Ring9 _camX = Ring9.Zero;
+    private Ring9 _camY = Ring9.Zero;
+    private Ring9 _camZ = Ring9.Zero;
+    private Ring9 _tauOffset = Ring9.Zero;
+    private bool _soundOn = true;
 
     public ChronovisorForm()
     {
-        Text = "Guiders.Physics — Cuboctahedron Chronovisor (RDSEED 48 0F C7 F8 Silicon TRNG -> Ring9 -> RGB/Audio)";
+        Text = "Guiders.Physics — Direct ReadCellSensors (MultimodalReadout9 -> Screen RGB & WinMM Stereo Audio)";
         ClientSize = new Size(960, 720);
         StartPosition = FormStartPosition.CenterScreen;
         DoubleBuffered = true;
         KeyPreview = true;
         BackColor = Color.Black;
 
-        SampleFreshSiliconAnchor();
+        _world.SyncWithSiliconThermalTrng();
+        RenderViewportAndPushAudio();
 
         _timer.Tick += (_, _) =>
         {
-            if (!_freezeAnchor)
-                SampleFreshSiliconAnchor();
-            RenderChronovisorViewport();
+            _world.AdvanceClock();
+            RenderViewportAndPushAudio();
             Invalidate();
         };
         _timer.Start();
     }
 
-    private void SampleFreshSiliconAnchor()
+    protected override void OnFormClosed(FormClosedEventArgs e)
     {
-        var (phiNow, dphiVerlet) = CuboctahedronAutomatonKernel.SampleSiliconThermalTwoTickPair9();
-        _lastPhiSi = phiNow;
-        _lastDphiSi = dphiVerlet;
-        _world.SyncWithPhysicalAtom(phiNow, dphiVerlet);
-        _anchorXNow = _world.SpatialAnchorX;
-        _anchorTauNow = _world.CurrentTick;
+        _timer.Stop();
+        _audio.Dispose();
+        base.OnFormClosed(e);
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
@@ -70,85 +196,75 @@ public sealed class ChronovisorForm : Form
         switch (e.KeyCode)
         {
             case Keys.Space:
-                _offsetX = 0;
-                _offsetY = 0;
-                _offsetZ = 0;
-                _offsetTau = 0;
-                SampleFreshSiliconAnchor();
+                _camX = Ring9.Zero;
+                _camY = Ring9.Zero;
+                _camZ = Ring9.Zero;
+                _tauOffset = Ring9.Zero;
+                _world.SyncWithSiliconThermalTrng();
                 break;
             case Keys.Left:
             case Keys.A:
-                _offsetX = (_offsetX - 1) & 0x1FF;
+                _camX = _camX - Ring9.MuVac;
                 break;
             case Keys.Right:
             case Keys.D:
-                _offsetX = (_offsetX + 1) & 0x1FF;
+                _camX = _camX + Ring9.MuVac;
                 break;
             case Keys.Up:
             case Keys.W:
-                _offsetZ = (_offsetZ + 1) & 0x1FF;
+                _camZ = _camZ + Ring9.MuVac;
                 break;
             case Keys.Down:
             case Keys.S:
-                _offsetZ = (_offsetZ - 1) & 0x1FF;
+                _camZ = _camZ - Ring9.MuVac;
                 break;
             case Keys.Q:
-                _offsetY = (_offsetY - 1) & 0x1FF;
+                _camY = _camY - Ring9.MuVac;
                 break;
             case Keys.E:
-                _offsetY = (_offsetY + 1) & 0x1FF;
+                _camY = _camY + Ring9.MuVac;
                 break;
             case Keys.OemOpenBrackets:
             case Keys.PageDown:
-                _offsetTau = (_offsetTau - 1) & 0x1FF;
+                _tauOffset = _tauOffset - Ring9.MuVac;
                 break;
             case Keys.OemCloseBrackets:
             case Keys.PageUp:
-                _offsetTau = (_offsetTau + 1) & 0x1FF;
+                _tauOffset = _tauOffset + Ring9.MuVac;
                 break;
             case Keys.M:
-                _freezeAnchor = !_freezeAnchor;
-                break;
-            case Keys.F:
-                _world.EmitGameEvent(
-                    new Ring9((ushort)_offsetZ),
-                    new Ring9((ushort)_offsetY),
-                    new Ring9((ushort)_offsetX),
-                    Ring9.KP,
-                    Ring9.CollapsePhi);
-                break;
-            case Keys.C:
-                _world.ClearGameEvents();
+                _world.ClockMode = _world.ClockMode == WorldClockMode.AtomSynced
+                    ? WorldClockMode.FreeRunning
+                    : WorldClockMode.AtomSynced;
                 break;
             case Keys.V:
-                _audioEnabled = !_audioEnabled;
+                _soundOn = !_soundOn;
                 break;
         }
-        RenderChronovisorViewport();
+        RenderViewportAndPushAudio();
         Invalidate();
     }
 
-    private void RenderChronovisorViewport()
+    private void RenderViewportAndPushAudio()
     {
-        Ring9 targetTau = new((ushort)((_anchorTauNow.Bits9 + _offsetTau) & 0x1FF));
-        Ring9 baseZ = new((ushort)(_offsetZ & 0x1FF));
+        Ring9 targetTau = _world.CurrentTick + _tauOffset;
         int halfW = ViewW / 2;
         int halfH = ViewH / 2;
 
         for (int py = 0; py < ViewH; py++)
         {
-            Ring9 dy = new((ushort)((_offsetY + (halfH - py)) & 0x1FF));
+            Ring9 dy = _camY + new Ring9((ushort)((halfH - py) & 0x1FF));
             int rowOff = py * ViewW;
             for (int px = 0; px < ViewW; px++)
             {
-                Ring9 dx = new((ushort)((_offsetX + (px - halfW)) & 0x1FF));
-                var cell = _world.EvaluateWorldlineAt(baseZ, dy, dx, targetTau);
-                var sensor = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
+                Ring9 dx = _camX + new Ring9((ushort)((px - halfW) & 0x1FF));
+                var cell = _world.EvaluateWorldlineAt(_camZ, dy, dx, targetTau);
+                var readout = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
 
-                int isCore = cell.Mu0.Bits9 > 1 ? 2 : 1;
-                int r = Math.Clamp(sensor.ColorR.Bits9 * isCore, 0, 255);
-                int g = Math.Clamp(sensor.ColorG.Bits9 * isCore, 0, 255);
-                int b = Math.Clamp(sensor.ColorB.Bits9 * isCore, 0, 255);
+                int boost = cell.Mu0.Bits9 > 1 ? 2 : 1;
+                int r = Math.Clamp(readout.ColorR.Bits9 * boost, 0, 255);
+                int g = Math.Clamp(readout.ColorG.Bits9 * boost, 0, 255);
+                int b = Math.Clamp(readout.ColorB.Bits9 * boost, 0, 255);
                 _pixels[rowOff + px] = (255 << 24) | (r << 16) | (g << 8) | b;
             }
         }
@@ -157,35 +273,42 @@ public sealed class ChronovisorForm : Form
         var bmpData = _bmp.LockBits(rect, ImageLockMode.WriteOnly, PixelFormat.Format32bppRgb);
         Marshal.Copy(_pixels, 0, bmpData.Scan0, _pixels.Length);
         _bmp.UnlockBits(bmpData);
+
+        if (_soundOn)
+        {
+            var leftReadout = CuboctahedronAutomatonKernel.ReadCellSensors(
+                _world.EvaluateWorldlineAt(_camZ, _camY, _camX - Ring9.C0OverCSq, targetTau));
+            var rightReadout = CuboctahedronAutomatonKernel.ReadCellSensors(
+                _world.EvaluateWorldlineAt(_camZ, _camY, _camX + Ring9.C0OverCSq, targetTau));
+            _audio.PushDirectReadoutAudio(leftReadout, rightReadout);
+        }
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
+        int viewH = ClientSize.Height - 115;
         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-        g.DrawImage(_bmp, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height - 110));
+        g.DrawImage(_bmp, new Rectangle(0, 0, ClientSize.Width, viewH));
 
-        Ring9 targetTau = new((ushort)((_anchorTauNow.Bits9 + _offsetTau) & 0x1FF));
-        var centerSensor = _world.SampleCameraVoxel(
-            new Ring9((ushort)_offsetZ),
-            new Ring9((ushort)_offsetY),
-            new Ring9((ushort)(_anchorXNow.Bits9 + _offsetX)));
+        Ring9 targetTau = _world.CurrentTick + _tauOffset;
+        var centerCell = _world.EvaluateWorldlineAt(_camZ, _camY, _camX, targetTau);
+        var centerReadout = CuboctahedronAutomatonKernel.ReadCellSensors(centerCell);
 
-        using var hudBrush = new SolidBrush(Color.FromArgb(220, 12, 16, 24));
-        g.FillRectangle(hudBrush, 0, ClientSize.Height - 110, ClientSize.Width, 110);
+        using var hudBrush = new SolidBrush(Color.FromArgb(230, 12, 16, 24));
+        g.FillRectangle(hudBrush, 0, viewH, ClientSize.Width, 115);
 
         using var font = new Font("Consolas", 10.5f, FontStyle.Bold);
-        string modeStr = _freezeAnchor ? "LOCKED-SNAPSHOT (Press M to live-stream RDSEED)" : "LIVE RDSEED SILICON TRNG (48 0F C7 F8)";
-        string line1 = $"[MODE: {modeStr}]  Silicon Anchor: phi_Si={_lastPhiSi}  dphi_Si={_lastDphiSi}  ->  x_now={_anchorXNow.Bits9}, tau_now={_anchorTauNow.Bits9}";
-        string line2 = $"[VIEWPORT TARGET]  dX={_offsetX}  dY={_offsetY}  dZ(Depth)={_offsetZ}  |  dTau(Time Knob)={_offsetTau}  ->  Target Tick tau={targetTau}";
-        string line3 = $"[CENTER SENSOR]    RGB=({centerSensor.ColorR.Bits9},{centerSensor.ColorG.Bits9},{centerSensor.ColorB.Bits9}) sum=128 | Acoustic={centerSensor.AcousticWave.Bits9} | OdorZ={centerSensor.OlfactoryShellZ.Bits9} | Quanta n_E={centerSensor.EnergyQuantaNe.Bits9}";
-        string line4 = "CONTROLS: [Space]=HERE & NOW (0,0,0,0) | [Arrows/WASD]=Move X/Z | [Q/E]=Move Y | [ [ / ] ]=Rewind/Forward Time dTau | [M]=Freeze/Live RDSEED | [F]=Emit Impulse";
+        string l1 = $"[CLOCK MODE: {_world.ClockMode} (M)]  CurrentTick={_world.CurrentTick}  tauOffset={_tauOffset}  ->  TargetTau={targetTau}";
+        string l2 = $"[CAMERA POS]  Z={_camZ} (W/S)  Y={_camY} (Q/E)  X={_camX} (A/D)  |  Cell Mu={centerCell.Mu0}  Gate={centerCell.Gate0}";
+        string l3 = $"[DIRECT READOUT]  RGB=({centerReadout.ColorR.Bits9},{centerReadout.ColorG.Bits9},{centerReadout.ColorB.Bits9}) sum=128 | Acoustic={centerReadout.AcousticWave.Bits9} | OdorZ={centerReadout.OlfactoryShellZ.Bits9} | Quanta n_E={centerReadout.EnergyQuantaNe.Bits9} | Audio={(_soundOn ? "ON (V)" : "OFF (V)")}";
+        string l4 = "CONTROLS: [Space]=HERE & NOW | [WASD/Arrows]=Move X/Z | [Q/E]=Move Y | [ [ / ] ]=Time Knob dTau | [M]=AtomSynced(RDSEED)/FreeRunning | [V]=Mute";
 
-        g.DrawString(line1, font, Brushes.Cyan, 12, ClientSize.Height - 102);
-        g.DrawString(line2, font, Brushes.Yellow, 12, ClientSize.Height - 78);
-        g.DrawString(line3, font, Brushes.LightGreen, 12, ClientSize.Height - 54);
-        g.DrawString(line4, font, Brushes.White, 12, ClientSize.Height - 28);
+        g.DrawString(l1, font, Brushes.Cyan, 12, viewH + 8);
+        g.DrawString(l2, font, Brushes.Yellow, 12, viewH + 34);
+        g.DrawString(l3, font, Brushes.LightGreen, 12, viewH + 60);
+        g.DrawString(l4, font, Brushes.White, 12, viewH + 86);
     }
 
     [STAThread]

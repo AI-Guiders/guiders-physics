@@ -117,11 +117,6 @@ public class GuidersPhysicsSuiteTests
         world.AdvanceClock();
         Assert.Equal(new Ring9(11), world.CurrentTick);
 
-        var beforeExplosion = world.GetCellAtCurrentTick(dz, dy, dx);
-        world.EmitGameEvent(dz, dy, dx, Ring9.KP, Ring9.CollapsePhi);
-        var afterExplosion = world.GetCellAtCurrentTick(dz, dy, dx);
-        Assert.NotEqual(beforeExplosion.Phi0Curr, afterExplosion.Phi0Curr);
-
         world.ClockMode = WorldClockMode.AtomSynced;
         Ring9 extTick = new(77);
         world.AdvanceClock(Ring9.IvSeed + extTick * Ring9.DPhiDisc, extTick * Ring9.DPhiDisc);

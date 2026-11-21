@@ -274,7 +274,7 @@ public static unsafe class CuboctahedronAutomatonKernel
     {
         // Direct x86_64 hardware silicon thermal TRNG instruction:
         //   48 0F C7 F8    rdseed rax
-        //   73 FA          jnc -6 (wait for fresh silicon thermal latch)
+    // Direct x86_64 RDSEED instruction bytes (rdseed rax; jnc -6; and eax, 0x1FF; ret)
         //   25 FF 01 00 00 and eax, 0x1FF (native 9-bit Ring9 mask!)
         //   C3             ret
         IntPtr mem = VirtualAlloc(IntPtr.Zero, 64, 0x3000, 0x40);
@@ -438,20 +438,25 @@ public static unsafe class CuboctahedronAutomatonKernel
     {
         Ring9 muC = Iv263MuAt(dz, dy, dx);
         Ring9 phiC = Iv263PhiAt(dz, dy, dx, lane);
-        Ring9 sumGate = Ring9.Zero;
+        Ring9 d0  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
+        Ring9 d1  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac, lane) - phiC;
+        Ring9 d2  = Iv263PhiAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
+        Ring9 d3  = Iv263PhiAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac, lane) - phiC;
+        Ring9 d4  = Iv263PhiAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac, lane) - phiC;
+        Ring9 d5  = Iv263PhiAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac, lane) - phiC;
+        Ring9 d6  = Iv263PhiAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac, lane) - phiC;
+        Ring9 d7  = Iv263PhiAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac, lane) - phiC;
+        Ring9 d8  = Iv263PhiAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx,                lane) - phiC;
+        Ring9 d9  = Iv263PhiAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx,                lane) - phiC;
+        Ring9 d10 = Iv263PhiAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx,                lane) - phiC;
+        Ring9 d11 = Iv263PhiAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx,                lane) - phiC;
 
-        for (ushort k = 0; k < 12; k++)
-        {
-            var (odz, ody, odx) = Ring9.CuboctOffsets12[k];
-            Ring9 nz = dz - odz;
-            Ring9 ny = dy - ody;
-            Ring9 nx = dx - odx;
-            Ring9 mn = Iv263MuAt(nz, ny, nx);
-            Ring9 dphi = Iv263PhiAt(nz, ny, nx, lane) - phiC;
-            sumGate = sumGate + mn * (dphi.ProjS + Ring9.QSquare - dphi.ProjC);
-        }
+        Ring9 sumS = d0.ProjS + d1.ProjS + d2.ProjS + d3.ProjS + d4.ProjS + d5.ProjS +
+                     d6.ProjS + d7.ProjS + d8.ProjS + d9.ProjS + d10.ProjS + d11.ProjS;
+        Ring9 sumC = d0.ProjC + d1.ProjC + d2.ProjC + d3.ProjC + d4.ProjC + d5.ProjC +
+                     d6.ProjC + d7.ProjC + d8.ProjC + d9.ProjC + d10.ProjC + d11.ProjC;
 
-        Ring9 rawGate = (muC * sumGate) * Ring9.BezoutInv97;
+        Ring9 rawGate = (muC * (sumS + Ring9.QSquare - sumC)) * Ring9.BezoutInv97;
         return ApplyHeisenbergDeadband(rawGate);
     }
 
