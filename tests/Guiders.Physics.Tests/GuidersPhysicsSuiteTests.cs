@@ -28,11 +28,14 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(352), cell.Gate0);
         Assert.Equal(new Ring9(256), cell.Gate1);
 
-        // Coordinate-free Bezout decoding: (x * 41).DecodeBezout41 == x for all 512 states in Ring9!
         for (ushort x = 0; x < 512; x++)
         {
             Ring9 rx = new(x);
-            Assert.Equal(rx, (rx * Ring9.DPhiDisc).DecodeBezout41);
+            Assert.Equal(rx, CuboctahedronAutomatonKernel.DecodeAtomicTimeTick(rx * Ring9.DPhiDisc));
+            Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.AtomicTimeServerPfdError(rx, rx));
+            Assert.Equal(Ring9.CollapsePhi, CuboctahedronAutomatonKernel.AtomicRelativePhaseAtTarget(rx, Ring9.CollapsePhi));
+            Assert.Equal(Ring9.IvSeed, CuboctahedronAutomatonKernel.TwoPointWorldlineInterpolate(Ring9.IvSeed, rx, Ring9.DPhiDisc, Ring9.Zero));
+            Assert.Equal(rx, CuboctahedronAutomatonKernel.TwoPointWorldlineInterpolate(Ring9.IvSeed, rx, Ring9.DPhiDisc, Ring9.MuVac));
         }
     }
 
@@ -85,33 +88,30 @@ public class GuidersPhysicsSuiteTests
         var world = new CuboctWorldScene3D();
         Ring9 dz = new(0), dy = new(2), dx = new(2);
 
-        // Evaluate cell at t = 0 directly via closed-form O(1) Verlet worldline parabola on Ring9:
         var cellT0 = world.EvaluateWorldlineAt(dz, dy, dx, Ring9.Zero);
 
-        // Jump in O(1) to t = 500 on Ring9 without iterating 500 steps!
         world.JumpToTick(new Ring9(500));
         var sensor = world.SampleCameraVoxel(dz, dy, dx);
         Assert.Equal(Ring9.QSquare, sensor.ColorR + sensor.ColorG + sensor.ColorB);
+        Assert.Equal(new Ring9(26), sensor.OlfactoryShellZ);
 
         var (earL, earR) = world.SampleBinauralAudioListener((new(0), new(1), new(2)), (new(0), new(3), new(2)));
         Assert.NotEqual(Ring9.Zero, earL + earR);
 
-        // Jump back in O(1) to t = 0 and verify 100% bit-exact agreement!
         world.JumpToTick(Ring9.Zero);
         var recT0 = world.GetCellAtCurrentTick(dz, dy, dx);
         Assert.Equal(cellT0.Phi0Curr, recT0.Phi0Curr);
         Assert.Equal(cellT0.Phi1Curr, recT0.Phi1Curr);
 
-        // Verify Two-Point Atomic Time Server synchronization across all 512 physical atom phase states:
         for (ushort tau = 0; tau < 512; tau++)
         {
             Ring9 targetTick = new(tau);
-            Ring9 atomPhase = Ring9.IvSeed + targetTick * Ring9.DPhiDisc;
-            world.SyncWithPhysicalAtom(atomPhase);
+            Ring9 dphiVerlet = targetTick * Ring9.DPhiDisc;
+            Ring9 atomPhase = Ring9.IvSeed + dphiVerlet;
+            world.SyncWithPhysicalAtom(atomPhase, dphiVerlet);
             Assert.Equal(targetTick, world.CurrentTick);
         }
 
-        // Verify both clock modes (1. FreeRunning, 2. AtomSynced) and gameplay event injection (EmitGameEvent):
         world.ClockMode = WorldClockMode.FreeRunning;
         world.JumpToTick(new Ring9(10));
         world.AdvanceClock();
@@ -123,13 +123,8 @@ public class GuidersPhysicsSuiteTests
         Assert.NotEqual(beforeExplosion.Phi0Curr, afterExplosion.Phi0Curr);
 
         world.ClockMode = WorldClockMode.AtomSynced;
-        world.AdvanceClock();
-
-        // Verify Physical Alpha-Quartz SiO2 Crystal Cell (Z(Si)=14, Z(O2)=16, Z(SiO2)=30, phi_SiO2=206=0o316):
-        Assert.Equal(new Ring9(30), Ring9.ZSilicon14 + Ring9.ZOxygen2_16);
-        Assert.Equal(new Ring9(206), Ring9.ZQuartz30 * Ring9.DPhiDisc);
-        var liveQuartz = world.SyncWithHostDualQuartzCrystals();
-        Assert.Equal(Ring9.ZSilicon14, liveQuartz.Mu0);
-        Assert.Equal(Ring9.ZOxygen2_16, liveQuartz.Mu1);
+        Ring9 extTick = new(77);
+        world.AdvanceClock(Ring9.IvSeed + extTick * Ring9.DPhiDisc, extTick * Ring9.DPhiDisc);
+        Assert.Equal(extTick, world.CurrentTick);
     }
 }

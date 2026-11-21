@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Guiders.Physics.Core;
 
@@ -27,6 +26,7 @@ public sealed class CuboctWorldScene3D
     public Ring9 CurrentTick { get; private set; }
     public Ring9 AtomicSlopeV0 { get; private set; }
     public Ring9 MasterAtomPhase { get; private set; }
+    public Ring9 SpatialAnchorX { get; private set; }
     public IReadOnlyList<WorldEvent9> Events => _events;
 
     public CuboctWorldScene3D(WorldClockMode clockMode = WorldClockMode.FreeRunning)
@@ -35,36 +35,24 @@ public sealed class CuboctWorldScene3D
         CurrentTick = Ring9.Zero;
         AtomicSlopeV0 = Ring9.Zero;
         MasterAtomPhase = Ring9.IvSeed;
+        SpatialAnchorX = Ring9.Zero;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void SyncWithPhysicalAtom(Ring9 atomPhase)
+    public void SyncWithPhysicalAtom(Ring9 phiAtomNow, Ring9 deltaPhiVerletNow = default)
     {
-        MasterAtomPhase = atomPhase;
-        var (syncedTick, slopeV0) = CuboctahedronAutomatonKernel.DecodeTwoPointAtomicTimeLock(atomPhase, Ring9.IvSeed);
-        CurrentTick = syncedTick;
-        AtomicSlopeV0 = slopeV0;
+        MasterAtomPhase = phiAtomNow;
+        SpatialAnchorX = CuboctahedronAutomatonKernel.DecodeAtomicSpatialCoord(phiAtomNow - Ring9.IvSeed);
+        CurrentTick = CuboctahedronAutomatonKernel.DecodeAtomicTimeTick(deltaPhiVerletNow);
+        AtomicSlopeV0 = CuboctahedronAutomatonKernel.TwoPointWorldlineSlopeRecovery(Ring9.IvSeed, phiAtomNow);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public VerletCell72 SyncWithHostDualQuartzCrystals()
-    {
-        ushort qpc9 = (ushort)(Stopwatch.GetTimestamp() & 0x1FF);
-        ushort rtc9 = (ushort)(System.Environment.TickCount64 & 0x1FF);
-        var quartzCell = VerletCell72.CreatePhysicalAlphaQuartzCell(new Ring9(qpc9), new Ring9(rtc9));
-        SyncWithPhysicalAtom(quartzCell.Phi0Curr);
-        return quartzCell;
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void SyncWithHostQuartzCrystal() => SyncWithHostDualQuartzCrystals();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AdvanceClock()
+    public void AdvanceClock(Ring9 externalAtomPhase = default, Ring9 externalDeltaPhiVerlet = default)
     {
         ushort isAtomMode = (ushort)ClockMode;
-        ushort crystalTicks9 = (ushort)(Stopwatch.GetTimestamp() & 0x1FF);
-        var (syncedTick, slopeV0) = CuboctahedronAutomatonKernel.DecodeTwoPointAtomicTimeLock(new Ring9(crystalTicks9), Ring9.IvSeed);
+        Ring9 syncedTick = CuboctahedronAutomatonKernel.DecodeAtomicTimeTick(externalDeltaPhiVerlet);
+        Ring9 slopeV0 = CuboctahedronAutomatonKernel.TwoPointWorldlineSlopeRecovery(Ring9.IvSeed, externalAtomPhase);
         Ring9 freeNext = CurrentTick + Ring9.MuVac;
 
         Ring9 selAtom = new(isAtomMode);

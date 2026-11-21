@@ -17,36 +17,36 @@ public readonly record struct Ring9
         get => _bits9;
     }
 
-    public static Ring9 Zero         => new(0);
-    public static Ring9 MuVac        => new(1);
-    public static Ring9 C0OverCSq    => new(2);
-    public static Ring9 D            => new(3);
-    public static Ring9 DInSquare    => new(4);
-    public static Ring9 DOutEdge     => new(5);
-    public static Ring9 NSq          => new(6);
-    public static Ring9 DOutVertex   => new(7);
-    public static Ring9 NTri         => new(8);
-    public static Ring9 ModBits      => new(9);
-    public static Ring9 NLinks       => new(12);
-    public static Ring9 NPhi         => new(13);
-    public static Ring9 SeamTicks    => new(21);
-    public static Ring9 BezoutInv41  => new(25);
-    public static Ring9 DPhiDisc     => new(41);
-    public static Ring9 KP           => new(64);
-    public static Ring9 MHat         => new(97);
-    public static Ring9 QSquare      => new(128);
-    public static Ring9 CollapsePhi  => new(139);
-    public static Ring9 BezoutInv139 => new(183);
-    public static Ring9 BezoutInv13  => new(197);
-    public static Ring9 QuartzSiO2Phi=> new(206); // (Z(SiO2)=30 * 41) mod 512 = 1230 mod 512 = 206 = 0o316
-    public static Ring9 PhiPauli     => new(256);
-    public static Ring9 IvSeed       => new(263);
-    public static Ring9 BezoutInv97  => new(417);
-    public static Ring9 MinusOne     => new(511);
-    public static Ring9 ZSilicon14   => new(14);  // Z(Si) = 14 = N_phi + 1
-    public static Ring9 ZOxygen2_16  => new(16);  // Z(O2) = 16 = 2 * |Delta(3)|
-    public static Ring9 ZQuartz30    => new(30);  // Z(SiO2) = 14 + 16 = 30 = |sq(3)| * d_out(E)
-    public static Ring9 ZAlphaQuartz90 => new(90);// Z((SiO2)_3) = 3 * 30 = 90 = M_hat - d_out(V)
+    public static Ring9 Zero           => new(0);
+    public static Ring9 MuVac          => new(1);
+    public static Ring9 C0OverCSq      => new(2);
+    public static Ring9 D              => new(3);
+    public static Ring9 DInSquare      => new(4);
+    public static Ring9 DOutEdge       => new(5);
+    public static Ring9 NSq            => new(6);
+    public static Ring9 DOutVertex     => new(7);
+    public static Ring9 NTri           => new(8);
+    public static Ring9 ModBits        => new(9);
+    public static Ring9 NLinks         => new(12);
+    public static Ring9 NPhi           => new(13);
+    public static Ring9 ZSilicon14     => new(14);
+    public static Ring9 ZOxygen2_16    => new(16);
+    public static Ring9 SeamTicks      => new(21);
+    public static Ring9 BezoutInv41    => new(25);
+    public static Ring9 ZQuartz30      => new(30);
+    public static Ring9 DPhiDisc       => new(41);
+    public static Ring9 KP             => new(64);
+    public static Ring9 ZAlphaQuartz90 => new(90);
+    public static Ring9 MHat           => new(97);
+    public static Ring9 QSquare        => new(128);
+    public static Ring9 CollapsePhi    => new(139);
+    public static Ring9 BezoutInv139   => new(183);
+    public static Ring9 BezoutInv13    => new(197);
+    public static Ring9 QuartzSiO2Phi  => new(206);
+    public static Ring9 PhiPauli       => new(256);
+    public static Ring9 IvSeed         => new(263);
+    public static Ring9 BezoutInv97    => new(417);
+    public static Ring9 MinusOne       => new(511);
 
     public static readonly (Ring9 Dz, Ring9 Dy, Ring9 Dx)[] CuboctOffsets12 =
     [
@@ -258,7 +258,9 @@ public readonly record struct MultimodalReadout9(
     Ring9 ColorB,
     Ring9 AcousticWave,
     Ring9 ReactionCurrent,
-    Ring9 EnergyQuantaNe);
+    Ring9 EnergyQuantaNe,
+    Ring9 OlfactoryShellZ,
+    Ring9 ChiralOdorProjectionS);
 
 public static class CuboctahedronAutomatonKernel
 {
@@ -277,19 +279,47 @@ public static class CuboctahedronAutomatonKernel
         return new Ring9((ushort)(pass * gateRaw.Bits9));
     }
 
-    /// <summary>
-    /// Coordinate-free Two-Point Atomic Time Server Lock (`checkAtomicTimeServerCoordinateFreeLockOp` &amp;
-    /// `checkTwoPointWorldlineUniquenessFromOriginAndAtomOp`):
-    /// Locks the worldline parabola between Origin `P_0 = IV(3) = 263` and a live physical atom/oscillator phase `atomPhase`
-    /// via the Bezout key `25 * 41 === 1 (mod 512)`.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (Ring9 SyncedTick, Ring9 WorldlineSlopeV0) DecodeTwoPointAtomicTimeLock(Ring9 atomPhase, Ring9 originPhase)
+    public static Ring9 AtomicTimeServerPfdError(Ring9 phiAtom, Ring9 phiMachine) =>
+        (phiAtom - phiMachine).ProjS;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 AtomicSelfClockedDrivePhase(Ring9 phiAtom, Ring9 deltaPhiMode) =>
+        phiAtom + deltaPhiMode;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 AtomicRelativePhaseAtTarget(Ring9 phiAtom, Ring9 deltaPhiMode) =>
+        AtomicSelfClockedDrivePhase(phiAtom, deltaPhiMode) - phiAtom;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 DecodeAtomicSpatialCoord(Ring9 phiAtomBg) =>
+        phiAtomBg.DecodeBezout41;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 DecodeAtomicTimeTick(Ring9 deltaPhiVerlet) =>
+        deltaPhiVerlet.DecodeBezout41;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 TwoPointWorldlineSlopeRecovery(Ring9 phiOrigin0, Ring9 phiNowAt1) =>
+        phiNowAt1 - phiOrigin0;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 TwoPointWorldlineInterpolate(Ring9 phiOrigin0, Ring9 phiNowAt1, Ring9 phiImp, Ring9 tau)
     {
-        Ring9 dphi = atomPhase - originPhase;
-        Ring9 syncedTick = dphi.DecodeBezout41;
-        Ring9 slopeV0 = dphi * Ring9.BezoutInv13;
-        return (syncedTick, slopeV0);
+        Ring9 v0 = TwoPointWorldlineSlopeRecovery(phiOrigin0, phiNowAt1) - phiImp;
+        return phiOrigin0.JumpVerletParabola(v0, phiImp, tau);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ChronovisorArbitraryTargetPhase(
+        Ring9 phiAnchorNow, Ring9 deltaPhiAnchorNow, Ring9 xTarget, Ring9 tauTarget)
+    {
+        Ring9 xNow = DecodeAtomicSpatialCoord(phiAnchorNow);
+        Ring9 tauNow = DecodeAtomicTimeTick(deltaPhiAnchorNow);
+        Ring9 deltaX = xTarget - xNow;
+        Ring9 deltaTau = tauTarget - tauNow;
+        Ring9 phiAtTargetX = phiAnchorNow + (deltaX * Ring9.DPhiDisc);
+        return phiAtTargetX.JumpVerletParabola(deltaPhiAnchorNow, Ring9.DPhiDisc, deltaTau);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -335,8 +365,9 @@ public static class CuboctahedronAutomatonKernel
         Ring9 sound = cell.Mu0 * cell.Mu1 * (Ring9.QSquare - c3);
         Ring9 rxn = cell.Mu0 * cell.Mu1 * s3;
         Ring9 ne = HeisenbergEnergyQuanta(cell.Gate0);
+        Ring9 odorShellZ = cell.Mu0 + cell.Mu1;
 
-        return new MultimodalReadout9(r, g, b, sound, rxn, ne);
+        return new MultimodalReadout9(r, g, b, sound, rxn, ne, odorShellZ, s3);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
