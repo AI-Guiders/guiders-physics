@@ -235,6 +235,117 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_7_RealReactionSimulations_InertSolventAndBelousovZhabotinsky13TickTrajectory_MatchesPythonBitForBit()
+    {
+        const int N = 7;
+        const int C = 3;
+
+        static (Ring9[,,] Mu, Ring9[,,] P0, Ring9[,,] P1) MakeReactionGrid(Ring9 phiEnv)
+        {
+            Ring9[,,] m = new Ring9[N, N, N];
+            Ring9[,,] p0 = new Ring9[N, N, N];
+            Ring9[,,] p1 = new Ring9[N, N, N];
+            for (int iz = 0; iz < N; iz++)
+            {
+                int dz = iz - C;
+                for (int iy = 0; iy < N; iy++)
+                {
+                    int dy = iy - C;
+                    for (int ix = 0; ix < N; ix++)
+                    {
+                        int dx = ix - C;
+                        m[iz, iy, ix] = Ring9.NPhi;
+                        Ring9 p = (dz == 0 && dy == 0 && dx == 0)
+                            ? Ring9.Zero
+                            : ((4 * dz + 2 * dy + dx) >= 0 ? phiEnv : -phiEnv);
+                        p0[iz, iy, ix] = p;
+                        p1[iz, iy, ix] = p;
+                    }
+                }
+            }
+            return (m, p0, p1);
+        }
+
+        static (Ring9[,,] Nxt0, Ring9[,,] Nxt1) StepReactionGrid(
+            Ring9[,,] m, Ring9[,,] c0, Ring9[,,] c1, Ring9[,,] pst0, Ring9[,,] pst1)
+        {
+            Ring9[,,] n0 = new Ring9[N, N, N];
+            Ring9[,,] n1 = new Ring9[N, N, N];
+            Ring9 M(int z, int y, int x) => m[(z + N) % N, (y + N) % N, (x + N) % N];
+            Ring9 P0(int z, int y, int x) => c0[(z + N) % N, (y + N) % N, (x + N) % N];
+            Ring9 P1(int z, int y, int x) => c1[(z + N) % N, (y + N) % N, (x + N) % N];
+
+            for (int z = 0; z < N; z++)
+                for (int y = 0; y < N; y++)
+                    for (int x = 0; x < N; x++)
+                    {
+                        Ring9 gate = CuboctahedronAutomatonKernel.ComputeTwoLaneCellGate(
+                            M(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x),
+                            M(z, y - 1, x - 1), P0(z, y - 1, x - 1), M(z, y - 1, x + 1), P0(z, y - 1, x + 1),
+                            M(z, y + 1, x - 1), P0(z, y + 1, x - 1), M(z, y + 1, x + 1), P0(z, y + 1, x + 1),
+                            M(z - 1, y, x - 1), P0(z - 1, y, x - 1), M(z - 1, y, x + 1), P0(z - 1, y, x + 1),
+                            M(z + 1, y, x - 1), P0(z + 1, y, x - 1), M(z + 1, y, x + 1), P0(z + 1, y, x + 1),
+                            M(z - 1, y - 1, x), P0(z - 1, y - 1, x), M(z - 1, y + 1, x), P0(z - 1, y + 1, x),
+                            M(z + 1, y - 1, x), P0(z + 1, y - 1, x), M(z + 1, y + 1, x), P0(z + 1, y + 1, x),
+                            M(z, y - 1, x - 1), P1(z, y - 1, x - 1), M(z, y - 1, x + 1), P1(z, y - 1, x + 1),
+                            M(z, y + 1, x - 1), P1(z, y + 1, x - 1), M(z, y + 1, x + 1), P1(z, y + 1, x + 1),
+                            M(z - 1, y, x - 1), P1(z - 1, y, x - 1), M(z - 1, y, x + 1), P1(z - 1, y, x + 1),
+                            M(z + 1, y, x - 1), P1(z + 1, y, x - 1), M(z + 1, y, x + 1), P1(z + 1, y, x + 1),
+                            M(z - 1, y - 1, x), P1(z - 1, y - 1, x), M(z - 1, y + 1, x), P1(z - 1, y + 1, x),
+                            M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
+                            Ring9.MuVac);
+                        var cell = VerletCell72.Create(M(z, y, x), c0[z, y, x], pst0[z, y, x], M(z, y, x), c1[z, y, x], pst1[z, y, x]);
+                        var stepped = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate);
+                        n0[z, y, x] = stepped.Phi0Curr;
+                        n1[z, y, x] = stepped.Phi1Curr;
+                    }
+            return (n0, n1);
+        }
+
+        // 1) Inert solvent (phi_env = 41): reaction does NOT proceed (center phase stays 0 -> 0)
+        var (mInert, p0Inert, p1Inert) = MakeReactionGrid(Ring9.DPhiDisc);
+        var (n0Inert, _) = StepReactionGrid(mInert, p0Inert, p1Inert, p0Inert, p1Inert);
+        Assert.Equal(Ring9.Zero, n0Inert[C, C, C]);
+
+        // 2) Catalytic Belousov-Zhabotinsky oscillation (phi_env = 139 = CollapsePhi):
+        // Exact 13-tick center trajectory from mt_ca/carrier_core.py:
+        // [0, 352, 361, 212, 214, 61, 262, 301, 95, 52, 121, 90, 59, 427]
+        ushort[] expectedBzPhases = [0, 352, 361, 212, 214, 61, 262, 301, 95, 52, 121, 90, 59, 427];
+        var (mCat, cur0, cur1) = MakeReactionGrid(Ring9.CollapsePhi);
+        var pst0 = cur0;
+        var pst1 = cur1;
+
+        for (int t = 1; t <= 13; t++)
+        {
+            var (nxt0, nxt1) = StepReactionGrid(mCat, cur0, cur1, pst0, pst1);
+            pst0 = cur0;
+            pst1 = cur1;
+            cur0 = nxt0;
+            cur1 = nxt1;
+
+            Assert.Equal(new Ring9(expectedBzPhases[t]), cur0[C, C, C]);
+            var centerCell = VerletCell72.Create(Ring9.NPhi, cur0[C, C, C], pst0[C, C, C], Ring9.NPhi, cur1[C, C, C], pst1[C, C, C]);
+            var ro = CuboctahedronAutomatonKernel.ReadCellSensors(centerCell);
+            Assert.Equal(Ring9.QSquare, ro.ColorR + ro.ColorG + ro.ColorB);
+
+            if (t == 1)
+            {
+                // At t=1 (phi=352, oxidized blue-green ferroin state): RGB = (0, 96, 32)
+                Assert.Equal(Ring9.Zero, ro.ColorR);
+                Assert.Equal(new Ring9(96), ro.ColorG);
+                Assert.Equal(new Ring9(32), ro.ColorB);
+            }
+            else if (t == 5)
+            {
+                // At t=5 (phi=61, reduced red-orange ferroin state): RGB = (67, 61, 0)
+                Assert.Equal(new Ring9(67), ro.ColorR);
+                Assert.Equal(new Ring9(61), ro.ColorG);
+                Assert.Equal(Ring9.Zero, ro.ColorB);
+            }
+        }
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];
