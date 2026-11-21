@@ -4,6 +4,7 @@
     <Project Path="src/Guiders.Physics.Compression/Guiders.Physics.Compression.csproj" />
     <Project Path="src/Guiders.Physics.MediaCodec/Guiders.Physics.MediaCodec.csproj" />
     <Project Path="src/Guiders.Physics.Engine/Guiders.Physics.Engine.csproj" />
+    <Project Path="src/Guiders.Physics.ChronovisorApp/Guiders.Physics.ChronovisorApp.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Guiders.Physics.Tests/Guiders.Physics.Tests.csproj" />

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net11.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Guiders.Physics.ChronovisorApp</RootNamespace>
+    <AssemblyName>Guiders.Physics.ChronovisorApp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Guiders.Physics.Core\Guiders.Physics.Core.csproj" />
+    <ProjectReference Include="..\Guiders.Physics.Engine\Guiders.Physics.Engine.csproj" />
+  </ItemGroup>
+</Project>
