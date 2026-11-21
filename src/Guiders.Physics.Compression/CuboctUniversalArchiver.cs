@@ -12,8 +12,8 @@ namespace Guiders.Physics.Compression;
 /// </summary>
 public static class CuboctUniversalArchiver
 {
-    public const int DefaultStride18 = 3 * CarrierSpecD3.NSq; // 18 bytes (e.g., 6ch x 24-bit or tabular records)
-    public const int HeisenbergLimit = CarrierSpecD3.DPhiDisc - 1; // 40 (< 41)
+    public const int DefaultStride18 = 3 * 6; // 18 bytes (e.g., 6ch x 24-bit or tabular records)
+    public const int HeisenbergLimit = 41 - 1; // 40 (< 41)
 
     /// <summary>
     /// Selects the lowest-entropy reversible predictor mode (0..4) for an arbitrary byte buffer

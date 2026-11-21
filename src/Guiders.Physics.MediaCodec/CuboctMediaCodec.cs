@@ -91,7 +91,7 @@ public static class CuboctMediaCodec
         int len = keyframe0.Length;
         byte[] rec = new byte[len];
         long inside = 0;
-        int limit = CarrierSpecD3.DPhiDisc; // 41
+        int limit = Ring9.DPhiDisc.Bits9; // 41
 
         for (int i = 0; i < len; i++)
         {

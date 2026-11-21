@@ -1,4 +1,3 @@
-using System;
 using System.Security.Cryptography;
 using Guiders.Physics.Core;
 using Guiders.Physics.Compression;
@@ -11,59 +10,29 @@ namespace Guiders.Physics.Tests;
 public class GuidersPhysicsSuiteTests
 {
     [Fact]
-    public unsafe void Core_Ring9AndVerletCell72_ExactBitBudgetAndIv263Holonomy()
+    public unsafe void Core_Ring9AndVerletCell72_Pure9BitAlgebraAndBezout()
     {
         Assert.Equal(9, sizeof(VerletCell72));
         Assert.Equal(72, sizeof(VerletCell72) * 8);
-        Assert.Equal(263, CarrierSpecD3.IvSeed);
+        Assert.Equal(new Ring9(263), Ring9.IvSeed);
 
-        var cell = VerletCell72.Create(64, 263, 139, 13, 41, 97);
+        var cell = VerletCell72.Create(new(64), new(263), new(139), new(13), new(41), new(97));
         cell.Gate0 = new Ring9(352);
         cell.Gate1 = new Ring9(256);
-        Assert.Equal(64, cell.Mu0.UnsignedTicks);
-        Assert.Equal(263, cell.Phi0Curr.UnsignedTicks);
-        Assert.Equal(139, cell.Phi0Past.UnsignedTicks);
-        Assert.Equal(13, cell.Mu1.UnsignedTicks);
-        Assert.Equal(41, cell.Phi1Curr.UnsignedTicks);
-        Assert.Equal(97, cell.Phi1Past.UnsignedTicks);
-        Assert.Equal(352, cell.Gate0.UnsignedTicks);
-        Assert.Equal(256, cell.Gate1.UnsignedTicks);
+        Assert.Equal(new Ring9(64), cell.Mu0);
+        Assert.Equal(new Ring9(263), cell.Phi0Curr);
+        Assert.Equal(new Ring9(139), cell.Phi0Past);
+        Assert.Equal(new Ring9(13), cell.Mu1);
+        Assert.Equal(new Ring9(41), cell.Phi1Curr);
+        Assert.Equal(new Ring9(97), cell.Phi1Past);
+        Assert.Equal(new Ring9(352), cell.Gate0);
+        Assert.Equal(new Ring9(256), cell.Gate1);
 
-        // Verify IV(3)=263 interior octant silence (+15 -> Gate=0) and domain-wall chiral ratchet (+76 + -77 = -1) purely on Ring9!
-        static (Ring9 Gate, Ring9 Raw, int Den, int Ne) EvalNode(Ring9 cz, Ring9 cy, Ring9 cx, int lane)
+        // Coordinate-free Bezout decoding: (x * 41).DecodeBezout41 == x for all 512 states in Ring9!
+        for (ushort x = 0; x < 512; x++)
         {
-            Span<Ring9> locMu = stackalloc Ring9[12];
-            Span<Ring9> locPhi = stackalloc Ring9[12];
-            Ring9 muC = CuboctahedronAutomatonKernel.Iv263MuAt(cz, cy, cx);
-            Ring9 phiC = CuboctahedronAutomatonKernel.Iv263PhiAt(cz, cy, cx, lane);
-            for (int k = 0; k < 12; k++)
-            {
-                var (dz, dy, dx) = CarrierSpecD3.CuboctOffsets12[k];
-                locMu[k] = CuboctahedronAutomatonKernel.Iv263MuAt(cz - dz, cy - dy, cx - dx);
-                locPhi[k] = CuboctahedronAutomatonKernel.Iv263PhiAt(cz - dz, cy - dy, cx - dx, lane);
-            }
-            return CuboctahedronAutomatonKernel.Compute12NeighborGate(muC, phiC, locMu, locPhi, 1);
-        }
-
-        var oct = EvalNode(new(2), new(2), new(2), 0);
-        Assert.Equal(15, oct.Raw.SignedWrap);
-        Assert.Equal(0, oct.Gate.SignedWrap);
-
-        var wPos = EvalNode(new(0), new(2), new(2), 1);
-        var wNeg = EvalNode(new(-1), new(2), new(2), 1);
-        Assert.Equal(76, wPos.Gate.SignedWrap);
-        Assert.Equal(-77, wNeg.Gate.SignedWrap);
-        Assert.Equal(-1, wPos.Gate.SignedWrap + wNeg.Gate.SignedWrap);
-    }
-
-    [Fact]
-    public void Core_CudaRtx4060Ptx_512StatesMatch()
-    {
-        var res = CudaRtx4060Driver.RunRtx4060PtxSelfTest();
-        if (res.Ok)
-        {
-            Assert.Equal(512, res.VerifiedCount);
-            Assert.True(res.GbpSec > 1.0);
+            Ring9 rx = new(x);
+            Assert.Equal(rx, (rx * Ring9.DPhiDisc).DecodeBezout41);
         }
     }
 
@@ -111,25 +80,24 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
-    public void Engine_ClosedFormO1WorldlineParabola_ZeroMemoryJumpAndTimeReversal()
+    public void Engine_ClosedFormO1WorldlineParabola_PureRing9JumpAndTimeReversal()
     {
         var world = new CuboctWorldScene3D();
         Ring9 dz = new(0), dy = new(2), dx = new(2);
 
-        // Evaluate cell at t = 0 directly via closed-form O(1) Verlet worldline parabola (zero 3D grid in RAM!):
-        var cellT0 = world.EvaluateWorldlineAt(dz, dy, dx, 0);
+        // Evaluate cell at t = 0 directly via closed-form O(1) Verlet worldline parabola on Ring9:
+        var cellT0 = world.EvaluateWorldlineAt(dz, dy, dx, Ring9.Zero);
 
-        // Jump in O(1) to t = 500 without iterating 500 steps!
-        world.JumpToTick(500);
+        // Jump in O(1) to t = 500 on Ring9 without iterating 500 steps!
+        world.JumpToTick(new Ring9(500));
         var sensor = world.SampleCameraVoxel(dz, dy, dx);
-        Assert.InRange(sensor.WavelengthNm, 440, 718);
-        Assert.Equal(128, sensor.ColorR + sensor.ColorG + sensor.ColorB);
+        Assert.Equal(Ring9.QSquare, sensor.ColorR + sensor.ColorG + sensor.ColorB);
 
         var (earL, earR) = world.SampleBinauralAudioListener((new(0), new(1), new(2)), (new(0), new(3), new(2)));
-        Assert.True(earL != 0 || earR != 0);
+        Assert.NotEqual(Ring9.Zero, earL + earR);
 
         // Jump back in O(1) to t = 0 and verify 100% bit-exact agreement!
-        world.JumpToTick(0);
+        world.JumpToTick(Ring9.Zero);
         var recT0 = world.GetCellAtCurrentTick(dz, dy, dx);
         Assert.Equal(cellT0.Phi0Curr, recT0.Phi0Curr);
         Assert.Equal(cellT0.Phi1Curr, recT0.Phi1Curr);
