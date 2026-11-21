@@ -379,10 +379,10 @@ public static unsafe class CuboctahedronAutomatonKernel
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultimodalReadout9 ReadCellSensors(VerletCell72 cell)
     {
-        Ring9 dphi = cell.Phi1Curr - cell.Phi0Curr;
-        Ring9 q1 = dphi.BitQ1;
-        Ring9 q0 = dphi.BitQ0;
-        Ring9 m7 = dphi.Mantissa7;
+        Ring9 phi0 = cell.Phi0Curr;
+        Ring9 q1 = phi0.BitQ1;
+        Ring9 q0 = phi0.BitQ0;
+        Ring9 m7 = phi0.Mantissa7;
         Ring9 comp7 = Ring9.QSquare - m7;
 
         Ring9 magC = (Ring9.MuVac - q0) * comp7 + q0 * m7;
@@ -393,8 +393,8 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 g = magS;
         Ring9 b = cNeg * magC;
 
-        Ring9 c3 = dphi.ProjC;
-        Ring9 s3 = dphi.ProjS;
+        Ring9 c3 = phi0.ProjC;
+        Ring9 s3 = phi0.ProjS;
         Ring9 sound = cell.Mu0 * cell.Mu1 * (Ring9.QSquare - c3);
         Ring9 rxn = cell.Mu0 * cell.Mu1 * s3;
         Ring9 ne = HeisenbergEnergyQuanta(cell.Gate0);
