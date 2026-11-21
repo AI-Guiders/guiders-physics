@@ -404,15 +404,67 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Iv263InBall9(Ring9 dz, Ring9 dy, Ring9 dx)
+    {
+        ushort az = dz.AbsWrap.Bits9;
+        ushort ay = dy.AbsWrap.Bits9;
+        ushort ax = dx.AbsWrap.Bits9;
+        ushort r2 = (ushort)(az * az + ay * ay + ax * ax);
+        ushort inBall = (ushort)(1 / ((r2 / 37) + 1));
+        return new Ring9(inBall);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Iv263MuAt(Ring9 dz, Ring9 dy, Ring9 dx) =>
+        Ring9.MuVac + Ring9.NLinks * Iv263InBall9(dz, dy, dx);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Iv263PhiAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane)
+    {
+        Ring9 inBall = Iv263InBall9(dz, dy, dx);
+        ushort zPos = (ushort)(1 - dz.BitQ1.Bits9);
+        ushort yPos = (ushort)(1 - dy.BitQ1.Bits9);
+        ushort xPos = (ushort)(1 - dx.BitQ1.Bits9);
+        ushort oct = (ushort)((zPos << 2) | (yPos << 1) | xPos);
+        ushort isLane1 = (ushort)(lane.Bits9 & 1);
+        ushort shift = (ushort)(oct ^ (3 * isLane1));
+        ushort bit = (ushort)(((263 % 256) >> shift) & 1);
+        Ring9 bg = dx * Ring9.DPhiDisc;
+        return bg + new Ring9((ushort)(123 * inBall.Bits9 * bit));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Compute12NeighborHolonomyGateAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane)
+    {
+        Ring9 muC = Iv263MuAt(dz, dy, dx);
+        Ring9 phiC = Iv263PhiAt(dz, dy, dx, lane);
+        Ring9 sumGate = Ring9.Zero;
+
+        for (ushort k = 0; k < 12; k++)
+        {
+            var (odz, ody, odx) = Ring9.CuboctOffsets12[k];
+            Ring9 nz = dz - odz;
+            Ring9 ny = dy - ody;
+            Ring9 nx = dx - odx;
+            Ring9 mn = Iv263MuAt(nz, ny, nx);
+            Ring9 dphi = Iv263PhiAt(nz, ny, nx, lane) - phiC;
+            sumGate = sumGate + mn * (dphi.ProjS + Ring9.QSquare - dphi.ProjC);
+        }
+
+        Ring9 rawGate = (muC * sumGate) * Ring9.BezoutInv97;
+        return ApplyHeisenbergDeadband(rawGate);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VerletCell72 EvaluateClosedFormWorldlineCellAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 t, Ring9 atomicSlopeV0 = default)
     {
-        Ring9 bg = dx * Ring9.DPhiDisc;
-        Ring9 p0Init = bg + Ring9.IvSeed;
-        Ring9 p1Init = bg + Ring9.IvSeed + (Ring9.D * Ring9.DPhiDisc);
-        Ring9 gate0 = Ring9.DPhiDisc + dz + dy;
-        Ring9 gate1 = Ring9.CollapsePhi - dz + dy;
+        Ring9 mu = Iv263MuAt(dz, dy, dx);
+        Ring9 p0Init = Iv263PhiAt(dz, dy, dx, Ring9.Zero);
+        Ring9 p1Init = Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
+        Ring9 gate0 = Compute12NeighborHolonomyGateAt(dz, dy, dx, Ring9.Zero);
+        Ring9 gate1 = Compute12NeighborHolonomyGateAt(dz, dy, dx, Ring9.MuVac);
 
-        var cell0 = VerletCell72.Create(Ring9.NPhi, p0Init, p0Init - atomicSlopeV0, Ring9.NPhi, p1Init, p1Init - atomicSlopeV0);
+        var cell0 = VerletCell72.Create(mu, p0Init, p0Init - atomicSlopeV0, mu, p1Init, p1Init - atomicSlopeV0);
         cell0.Gate0 = gate0;
         cell0.Gate1 = gate1;
         return cell0.EvaluateClosedFormAtTick(t);

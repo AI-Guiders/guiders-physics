@@ -10,8 +10,8 @@ namespace Guiders.Physics.ChronovisorApp;
 
 public sealed class ChronovisorForm : Form
 {
-    private const int ViewW = 256;
-    private const int ViewH = 192;
+    private const int ViewW = 64;
+    private const int ViewH = 48;
 
     private readonly CuboctWorldScene3D _world = new(WorldClockMode.AtomSynced);
     private readonly Bitmap _bmp = new(ViewW, ViewH, PixelFormat.Format32bppRgb);
@@ -141,17 +141,14 @@ public sealed class ChronovisorForm : Form
             int rowOff = py * ViewW;
             for (int px = 0; px < ViewW; px++)
             {
-                Ring9 dx = new((ushort)((_anchorXNow.Bits9 + _offsetX + (px - halfW)) & 0x1FF));
-                Ring9 phase = CuboctahedronAutomatonKernel.ChronovisorArbitraryTargetPhase(
-                    _lastPhiSi, _lastDphiSi, dx + dy + baseZ, targetTau);
-
+                Ring9 dx = new((ushort)((_offsetX + (px - halfW)) & 0x1FF));
                 var cell = _world.EvaluateWorldlineAt(baseZ, dy, dx, targetTau);
-                cell.Phi1Curr = cell.Phi0Curr + phase;
                 var sensor = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
 
-                int r = Math.Clamp(sensor.ColorR.Bits9 * 2, 0, 255);
-                int g = Math.Clamp(sensor.ColorG.Bits9 * 2, 0, 255);
-                int b = Math.Clamp(sensor.ColorB.Bits9 * 2, 0, 255);
+                int isCore = cell.Mu0.Bits9 > 1 ? 2 : 1;
+                int r = Math.Clamp(sensor.ColorR.Bits9 * isCore, 0, 255);
+                int g = Math.Clamp(sensor.ColorG.Bits9 * isCore, 0, 255);
+                int b = Math.Clamp(sensor.ColorB.Bits9 * isCore, 0, 255);
                 _pixels[rowOff + px] = (255 << 24) | (r << 16) | (g << 8) | b;
             }
         }
