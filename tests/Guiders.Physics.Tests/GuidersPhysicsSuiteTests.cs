@@ -126,5 +126,8 @@ public class GuidersPhysicsSuiteTests
         Ring9 extTick = new(77);
         world.AdvanceClock(Ring9.IvSeed + extTick * Ring9.DPhiDisc, extTick * Ring9.DPhiDisc);
         Assert.Equal(extTick, world.CurrentTick);
+
+        world.SyncWithSiliconThermalTrng();
+        world.AdvanceClock();
     }
 }

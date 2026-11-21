@@ -48,7 +48,30 @@ public sealed class CuboctWorldScene3D
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void AdvanceClock(Ring9 externalAtomPhase = default, Ring9 externalDeltaPhiVerlet = default)
+    public void SyncWithSiliconThermalTrng()
+    {
+        var (phiNow, dphiVerlet) = CuboctahedronAutomatonKernel.SampleSiliconThermalTwoTickPair9();
+        SyncWithPhysicalAtom(phiNow, dphiVerlet);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AdvanceClock()
+    {
+        ushort isAtomMode = (ushort)ClockMode;
+        var (trngPhi, trngDphi) = CuboctahedronAutomatonKernel.SampleSiliconThermalTwoTickPair9();
+        Ring9 syncedTick = CuboctahedronAutomatonKernel.DecodeAtomicTimeTick(trngDphi);
+        Ring9 slopeV0 = CuboctahedronAutomatonKernel.TwoPointWorldlineSlopeRecovery(Ring9.IvSeed, trngPhi);
+        Ring9 freeNext = CurrentTick + Ring9.MuVac;
+
+        Ring9 selAtom = new(isAtomMode);
+        Ring9 selFree = Ring9.MuVac - selAtom;
+
+        CurrentTick = selFree * freeNext + selAtom * syncedTick;
+        AtomicSlopeV0 = selFree * AtomicSlopeV0 + selAtom * slopeV0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AdvanceClock(Ring9 externalAtomPhase, Ring9 externalDeltaPhiVerlet)
     {
         ushort isAtomMode = (ushort)ClockMode;
         Ring9 syncedTick = CuboctahedronAutomatonKernel.DecodeAtomicTimeTick(externalDeltaPhiVerlet);

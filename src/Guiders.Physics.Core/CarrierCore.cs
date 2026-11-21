@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace Guiders.Physics.Core;
 
@@ -264,6 +265,23 @@ public readonly record struct MultimodalReadout9(
 
 public static class CuboctahedronAutomatonKernel
 {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 SampleSiliconThermalTrng9()
+    {
+        Span<byte> buf = stackalloc byte[2];
+        RandomNumberGenerator.Fill(buf);
+        ushort raw16 = (ushort)(buf[0] | (buf[1] << 8));
+        return new Ring9(raw16);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 ThermalPhaseNow, Ring9 ThermalDeltaPhiVerlet) SampleSiliconThermalTwoTickPair9()
+    {
+        Ring9 p0 = SampleSiliconThermalTrng9();
+        Ring9 p1 = SampleSiliconThermalTrng9();
+        return (p1, p1 - p0);
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Ring9 HeisenbergEnergyQuanta(Ring9 gateRaw)
     {
