@@ -101,5 +101,14 @@ public class GuidersPhysicsSuiteTests
         var recT0 = world.GetCellAtCurrentTick(dz, dy, dx);
         Assert.Equal(cellT0.Phi0Curr, recT0.Phi0Curr);
         Assert.Equal(cellT0.Phi1Curr, recT0.Phi1Curr);
+
+        // Verify Two-Point Atomic Time Server synchronization across all 512 physical atom phase states:
+        for (ushort tau = 0; tau < 512; tau++)
+        {
+            Ring9 targetTick = new(tau);
+            Ring9 atomPhase = Ring9.IvSeed + targetTick * Ring9.DPhiDisc;
+            world.SyncWithPhysicalAtom(atomPhase);
+            Assert.Equal(targetTick, world.CurrentTick);
+        }
     }
 }

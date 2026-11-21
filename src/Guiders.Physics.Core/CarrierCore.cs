@@ -4,14 +4,9 @@ using System.Runtime.InteropServices;
 
 namespace Guiders.Physics.Core;
 
-/// <summary>
-/// Native 9-Bit Modular Ring Element in Z_512 (bits [8:0]):
-/// Every input, output, coordinate, time tick, projection, and sensor value in the carrier
-/// lives natively on `Ring9`!
-/// </summary>
 public readonly record struct Ring9
 {
-    private readonly ushort _bits9; // Strictly 9 bits [0..511]
+    private readonly ushort _bits9;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Ring9(ushort bits9) => _bits9 = (ushort)(bits9 & 0x1FF);
@@ -22,34 +17,32 @@ public readonly record struct Ring9
         get => _bits9;
     }
 
-    // Canonical carrier constants derived from D = 3 as native 9-bit Ring9 elements:
-    public static Ring9 Zero        => new(0);
-    public static Ring9 MuVac       => new(1);
-    public static Ring9 C0OverCSq   => new(2);
-    public static Ring9 D           => new(3);
-    public static Ring9 DInSquare   => new(4);
-    public static Ring9 DOutEdge    => new(5);
-    public static Ring9 NSq         => new(6);
-    public static Ring9 DOutVertex  => new(7);
-    public static Ring9 NTri        => new(8);
-    public static Ring9 ModBits     => new(9);
-    public static Ring9 NLinks      => new(12);
-    public static Ring9 NPhi        => new(13);
-    public static Ring9 SeamTicks   => new(21);
-    public static Ring9 BezoutInv41 => new(25);  // 25 * 41 === 1 (mod 512)
-    public static Ring9 DPhiDisc    => new(41);  // Heisenberg threshold 41
-    public static Ring9 KP          => new(64);  // Pauli amplitude ceiling 64
-    public static Ring9 MHat        => new(97);  // 1 + 12 * 8 = 97
-    public static Ring9 QSquare     => new(128); // Quadrant saddle 128
-    public static Ring9 CollapsePhi => new(139); // 128 + 12 - 1 = 139
-    public static Ring9 BezoutInv139=> new(183); // 183 * 139 === 1 (mod 512)
-    public static Ring9 BezoutInv13 => new(197); // 197 * 13 === 1 (mod 512)
-    public static Ring9 PhiPauli    => new(256); // Pauli half-turn 256
-    public static Ring9 IvSeed      => new(263); // 0o407 = 256 + 7 = 263
-    public static Ring9 BezoutInv97 => new(417); // 417 * 97 === 1 (mod 512)
-    public static Ring9 MinusOne    => new(511); // -1 mod 512
+    public static Ring9 Zero         => new(0);
+    public static Ring9 MuVac        => new(1);
+    public static Ring9 C0OverCSq    => new(2);
+    public static Ring9 D            => new(3);
+    public static Ring9 DInSquare    => new(4);
+    public static Ring9 DOutEdge     => new(5);
+    public static Ring9 NSq          => new(6);
+    public static Ring9 DOutVertex   => new(7);
+    public static Ring9 NTri         => new(8);
+    public static Ring9 ModBits      => new(9);
+    public static Ring9 NLinks       => new(12);
+    public static Ring9 NPhi         => new(13);
+    public static Ring9 SeamTicks    => new(21);
+    public static Ring9 BezoutInv41  => new(25);
+    public static Ring9 DPhiDisc     => new(41);
+    public static Ring9 KP           => new(64);
+    public static Ring9 MHat         => new(97);
+    public static Ring9 QSquare      => new(128);
+    public static Ring9 CollapsePhi  => new(139);
+    public static Ring9 BezoutInv139 => new(183);
+    public static Ring9 BezoutInv13  => new(197);
+    public static Ring9 PhiPauli     => new(256);
+    public static Ring9 IvSeed       => new(263);
+    public static Ring9 BezoutInv97  => new(417);
+    public static Ring9 MinusOne     => new(511);
 
-    // Canonical 12 FCC Cuboctahedron O_2(3) neighbor offsets in pure Ring9^3:
     public static readonly (Ring9 Dz, Ring9 Dy, Ring9 Dx)[] CuboctOffsets12 =
     [
         (Zero,     MuVac,    MuVac),    (Zero,     MuVac,    MinusOne),
@@ -60,41 +53,30 @@ public readonly record struct Ring9
         (MinusOne, MuVac,    Zero),     (MinusOne, MinusOne, Zero)
     ];
 
-    /// <summary>Half-turn Pauli bit q1 = bit 8 (in {0, 1} as Ring9).</summary>
     public Ring9 BitQ1
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => new((ushort)((_bits9 >> 8) & 1));
     }
 
-    /// <summary>Quadrant bit q0 = bit 7 (in {0, 1} as Ring9).</summary>
     public Ring9 BitQ0
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => new((ushort)((_bits9 >> 7) & 1));
     }
 
-    /// <summary>7-bit intra-quadrant mantissa m7 = bits [6:0] (in 0..127 as Ring9).</summary>
     public Ring9 Mantissa7
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => new((ushort)(_bits9 & 127));
     }
 
-    /// <summary>Pauli singlet partner (phi + 256) mod 512 = {~phi[8], phi[7:0]}.</summary>
     public Ring9 PauliPartner
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => new((ushort)(_bits9 ^ 256));
     }
 
-    /// <summary>
-    /// 100% branchless Gray-Quadrant Butterfly projections (C_3(phi), S_3(phi)) on pure 9-bit Ring9 wires!
-    /// Matches `rotator_512_unit` in `hardware/cuboctahedron_carrier_asic.v` gate-for-gate:
-    ///   comp7 = 128 - m7
-    ///   X-butterfly swap by q0: magC = (1-q0)*comp7 + q0*m7, magS = (1-q0)*m7 + q0*comp7
-    ///   Gray signs: c_neg = q1 ^ q0, s_neg = q1.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (Ring9 ProjC, Ring9 ProjS) GrayButterflyRotator() => (ProjC, ProjS);
 
@@ -127,17 +109,11 @@ public readonly record struct Ring9
         }
     }
 
-    /// <summary>
-    /// 9-bit folded magnitude `|wrap512(phi)| = 128 - C_3(phi)` in `[0..256]` as a native `Ring9`!
-    /// (Matches Module 1B `abs_x_out = c0 - cx` in `cuboctahedron_carrier_asic.v`!)
-    /// </summary>
     public Ring9 AbsWrap
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get
         {
-            ushort negU = (ushort)((256 - _bits9) & 0x1FF);
-            // w = 256 - negU; |w| = C_3(0) - C_3(phi)
             ushort q1 = (ushort)((_bits9 >> 8) & 1);
             ushort q0 = (ushort)((_bits9 >> 7) & 1);
             ushort m7 = (ushort)(_bits9 & 127);
@@ -149,21 +125,12 @@ public readonly record struct Ring9
         }
     }
 
-    /// <summary>
-    /// Coordinate-free Bezout inverse of Heisenberg quantum 41 (`25 * 41 === 1 mod 512`) on `Ring9`.
-    /// </summary>
     public Ring9 DecodeBezout41
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => this * BezoutInv41;
     }
 
-    /// <summary>
-    /// Closed-form O(1) Verlet Worldline Parabola Jump purely on 9-bit `Ring9` (`verletParabolaClosedFormJumpOp`):
-    /// Jumps directly from `this = phi(0)` to ANY time tick `t` (`Ring9`) in 1 step:
-    /// `phi(t) = phi(0) + t * v0 + (t * (t + 1) / 2) * gatePhi (mod 512)`.
-    /// Note that on Z_512, `(t * (t + 1)) >> 1` mod 512 is a pure 10-bit product shifted right by 1 bit!
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Ring9 JumpVerletParabola(Ring9 v0, Ring9 gatePhi, Ring9 t)
     {
@@ -173,7 +140,6 @@ public readonly record struct Ring9
         return this + (t * v0) + (triT * gatePhi);
     }
 
-    /// <summary>Octal triad (o2, o1, o0) in Z_8^3 (each 3-bit digit as Ring9).</summary>
     public (Ring9 O2, Ring9 O1, Ring9 O0) OctalTriad =>
         (new((ushort)((_bits9 >> 6) & 7)), new((ushort)((_bits9 >> 3) & 7)), new((ushort)(_bits9 & 7)));
 
@@ -205,10 +171,6 @@ public readonly record struct Ring9
     }
 }
 
-/// <summary>
-/// Exact 72-Bit (9-Byte, Pack = 1) Two-Tick Verlet Polar Cell:
-/// 8 lanes of 9-bit `Ring9` = 72 bits = 9 bytes exact, with zero padding and zero branches!
-/// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 9)]
 public struct VerletCell72
 {
@@ -256,10 +218,6 @@ public struct VerletCell72
         return c;
     }
 
-    /// <summary>
-    /// Closed-form O(1) Worldline Evaluation of this 72-bit cell at ANY 9-bit time tick `t` (`Ring9`)!
-    /// Zero loops, zero `int` — pure `Ring9` parabola `JumpVerletParabola`!
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly VerletCell72 EvaluateClosedFormAtTick(Ring9 t)
     {
@@ -277,10 +235,6 @@ public struct VerletCell72
     }
 }
 
-/// <summary>
-/// Pure 9-Bit `Ring9` Multimodal Sensor Readout from a 72-bit `VerletCell72`:
-/// Every channel (ColorR, ColorG, ColorB, WavelengthShift, AcousticWave, ReactionCurrent, EnergyQuantaNe) is a `Ring9`!
-/// </summary>
 public readonly record struct MultimodalReadout9(
     Ring9 ColorR,
     Ring9 ColorG,
@@ -289,15 +243,8 @@ public readonly record struct MultimodalReadout9(
     Ring9 ReactionCurrent,
     Ring9 EnergyQuantaNe);
 
-/// <summary>
-/// 100% Branchless Pure 9-Bit `Ring9` Closed-Form Worldline &amp; Rotator Kernel.
-/// Every parameter and return value is strictly `Ring9` or `VerletCell72`!
-/// </summary>
 public static class CuboctahedronAutomatonKernel
 {
-    /// <summary>
-    /// Pure 9-bit branchless step indicator `1` if `a.AbsWrap >= 41` (above Heisenberg deadband), else `0` as `Ring9`.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Ring9 HeisenbergEnergyQuanta(Ring9 gateRaw)
     {
@@ -311,6 +258,21 @@ public static class CuboctahedronAutomatonKernel
         ushort ne = (ushort)(gateRaw.AbsWrap.Bits9 / 41);
         ushort pass = (ushort)(1 - (1 / (ne + 1)));
         return new Ring9((ushort)(pass * gateRaw.Bits9));
+    }
+
+    /// <summary>
+    /// Coordinate-free Two-Point Atomic Time Server Lock (`checkAtomicTimeServerCoordinateFreeLockOp` &amp;
+    /// `checkTwoPointWorldlineUniquenessFromOriginAndAtomOp`):
+    /// Locks the worldline parabola between Origin `P_0 = IV(3) = 263` and a live physical atom/oscillator phase `atomPhase`
+    /// via the Bezout key `25 * 41 === 1 (mod 512)`.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 SyncedTick, Ring9 WorldlineSlopeV0) DecodeTwoPointAtomicTimeLock(Ring9 atomPhase, Ring9 originPhase)
+    {
+        Ring9 dphi = atomPhase - originPhase;
+        Ring9 syncedTick = dphi.DecodeBezout41;
+        Ring9 slopeV0 = dphi * Ring9.BezoutInv13;
+        return (syncedTick, slopeV0);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -334,10 +296,6 @@ public static class CuboctahedronAutomatonKernel
         return VerletCell72.Create(steppedCell.Mu0, p0Curr, p0PastRec, steppedCell.Mu1, p1Curr, p1PastRec);
     }
 
-    /// <summary>
-    /// Pure 9-bit `Ring9` Multimodal Readout (RGB triad with R+G+B = 128 on Ring9, acoustic wave, reaction current, thermal quanta).
-    /// Zero `int`, zero `if`, zero `?:`!
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultimodalReadout9 ReadCellSensors(VerletCell72 cell)
     {
@@ -351,7 +309,6 @@ public static class CuboctahedronAutomatonKernel
         Ring9 magS = (Ring9.MuVac - q0) * m7 + q0 * comp7;
         Ring9 cNeg = q1 ^ q0;
 
-        // Branchless RGB triad on Ring9: R = (1 - cNeg) * magC, G = magS, B = cNeg * magC -> R + G + B === 128!
         Ring9 r = (Ring9.MuVac - cNeg) * magC;
         Ring9 g = magS;
         Ring9 b = cNeg * magC;
@@ -365,22 +322,16 @@ public static class CuboctahedronAutomatonKernel
         return new MultimodalReadout9(r, g, b, sound, rxn, ne);
     }
 
-    /// <summary>
-    /// Coordinate-Free O(1) Closed-Form Worldline Cell Evaluator purely on `Ring9`:
-    /// Given spatial coordinates `(dz, dy, dx) in Ring9^3` and time tick `t in Ring9`,
-    /// computes the initial phase from `IV(3) = 263 = 0o407` and jumps in O(1) along the Verlet worldline parabola!
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static VerletCell72 EvaluateClosedFormWorldlineCellAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 t)
+    public static VerletCell72 EvaluateClosedFormWorldlineCellAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 t, Ring9 atomicSlopeV0 = default)
     {
-        // Octal triad & background phase ramp on Ring9:
         Ring9 bg = dx * Ring9.DPhiDisc;
         Ring9 p0Init = bg + Ring9.IvSeed;
         Ring9 p1Init = bg + Ring9.IvSeed + (Ring9.D * Ring9.DPhiDisc);
         Ring9 gate0 = Ring9.DPhiDisc + dz + dy;
         Ring9 gate1 = Ring9.CollapsePhi - dz + dy;
 
-        var cell0 = VerletCell72.Create(Ring9.NPhi, p0Init, p0Init, Ring9.NPhi, p1Init, p1Init);
+        var cell0 = VerletCell72.Create(Ring9.NPhi, p0Init, p0Init - atomicSlopeV0, Ring9.NPhi, p1Init, p1Init - atomicSlopeV0);
         cell0.Gate0 = gate0;
         cell0.Gate1 = gate1;
         return cell0.EvaluateClosedFormAtTick(t);
