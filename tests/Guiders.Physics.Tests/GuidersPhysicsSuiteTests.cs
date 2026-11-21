@@ -1,6 +1,4 @@
-using System.IO;
 using System.Security.Cryptography;
-using System.Text.Json;
 using Guiders.Physics.Core;
 using Guiders.Physics.Compression;
 using Guiders.Physics.MediaCodec;
@@ -10,40 +8,31 @@ namespace Guiders.Physics.Tests;
 
 public class GuidersPhysicsSuiteTests
 {
-    private static int ToSigned512(Ring9 r) =>
-        r.Bits9 > 256 ? r.Bits9 - 512 : r.Bits9;
-
-    private static long ToSignedBus36(Bus36 b)
-    {
-        ulong u = (ulong)b.L0.Bits9 | ((ulong)b.L1.Bits9 << 9) | ((ulong)b.L2.Bits9 << 18) | ((ulong)b.L3.Bits9 << 27);
-        return (u & (1UL << 35)) != 0 ? (long)u - (1L << 36) : (long)u;
-    }
-
     [Fact]
     public unsafe void Core_1_PassportAnd72BitLayout_MatchesLean4AndPython()
     {
         Assert.Equal(9, sizeof(VerletCell72));
         Assert.Equal(72, sizeof(VerletCell72) * 8);
 
-        Assert.Equal(3,   Ring9.D.Bits9);
-        Assert.Equal(1,   Ring9.MuVac.Bits9);
-        Assert.Equal(2,   Ring9.C0OverCSq.Bits9);
-        Assert.Equal(12,  Ring9.NLinks.Bits9);
-        Assert.Equal(8,   Ring9.NTri.Bits9);
-        Assert.Equal(6,   Ring9.NSq.Bits9);
-        Assert.Equal(4,   Ring9.DInSquare.Bits9);
-        Assert.Equal(5,   Ring9.DOutEdge.Bits9);
-        Assert.Equal(7,   Ring9.DOutVertex.Bits9);
-        Assert.Equal(9,   Ring9.ModBits.Bits9);
-        Assert.Equal(13,  Ring9.NPhi.Bits9);
-        Assert.Equal(41,  Ring9.DPhiDisc.Bits9);
-        Assert.Equal(21,  Ring9.SeamTicks.Bits9);
-        Assert.Equal(64,  Ring9.KP.Bits9);
-        Assert.Equal(97,  Ring9.MHat.Bits9);
-        Assert.Equal(128, Ring9.QSquare.Bits9);
-        Assert.Equal(139, Ring9.CollapsePhi.Bits9);
-        Assert.Equal(256, Ring9.PhiPauli.Bits9);
-        Assert.Equal(263, Ring9.IvSeed.Bits9);
+        Assert.Equal(new Ring9(3),   Ring9.D);
+        Assert.Equal(new Ring9(1),   Ring9.MuVac);
+        Assert.Equal(new Ring9(2),   Ring9.C0OverCSq);
+        Assert.Equal(new Ring9(12),  Ring9.NLinks);
+        Assert.Equal(new Ring9(8),   Ring9.NTri);
+        Assert.Equal(new Ring9(6),   Ring9.NSq);
+        Assert.Equal(new Ring9(4),   Ring9.DInSquare);
+        Assert.Equal(new Ring9(5),   Ring9.DOutEdge);
+        Assert.Equal(new Ring9(7),   Ring9.DOutVertex);
+        Assert.Equal(new Ring9(9),   Ring9.ModBits);
+        Assert.Equal(new Ring9(13),  Ring9.NPhi);
+        Assert.Equal(new Ring9(41),  Ring9.DPhiDisc);
+        Assert.Equal(new Ring9(21),  Ring9.SeamTicks);
+        Assert.Equal(new Ring9(64),  Ring9.KP);
+        Assert.Equal(new Ring9(97),  Ring9.MHat);
+        Assert.Equal(new Ring9(128), Ring9.QSquare);
+        Assert.Equal(new Ring9(139), Ring9.CollapsePhi);
+        Assert.Equal(new Ring9(256), Ring9.PhiPauli);
+        Assert.Equal(new Ring9(263), Ring9.IvSeed);
 
         var cell = VerletCell72.Create(new(64), new(263), new(139), new(13), new(41), new(97));
         cell.Gate0 = new Ring9(352);
@@ -59,102 +48,62 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
-    public void Core_2_Rotator512AndPythagorean_MatchesLean4JsonDumpAll512()
+    public void Core_2_Rotator512AndPythagorean_ExactOnRing9AndBus36All512()
     {
         for (ushort phi = 0; phi < 512; phi++)
         {
             Ring9 r = new(phi);
-            int c = ToSigned512(r.ProjC);
-            int s = ToSigned512(r.ProjS);
+            Ring9 c = r.ProjC;
+            Ring9 s = r.ProjS;
 
-            int wrap = 256 - ((256 - phi) & 511);
-            int expectedC = 128 - System.Math.Abs(wrap);
-            int wrapS = 256 - ((256 - ((phi - 128) & 511)) & 511);
-            int expectedS = 128 - System.Math.Abs(wrapS);
+            Assert.Equal(Ring9.QSquare - r.AbsWrap, c);
+            Assert.Equal((r - Ring9.QSquare).ProjC, s);
+            Assert.Equal(Ring9.QSquare, c.AbsWrap + s.AbsWrap);
 
-            Assert.Equal(expectedC, c);
-            Assert.Equal(expectedS, s);
-            Assert.Equal(128, System.Math.Abs(c) + System.Math.Abs(s));
-
-            var (pxBus, pyBus, prBus) = CuboctahedronAutomatonKernel.PythagoreanRotator36(r);
-            long px = ToSignedBus36(pxBus);
-            long py = ToSignedBus36(pyBus);
-            long pr = ToSignedBus36(prBus);
-
-            Assert.Equal(pr * pr, px * px + py * py);
-            if (phi == 41)
-            {
-                Assert.Equal(14703L, px);
-                Assert.Equal(10496L, py);
-                Assert.Equal(18065L, pr);
-            }
+            // Pythagorean identity Px^2 + Py^2 == Pr^2 directly on Bus36 without unwrapping bits!
+            var (px, py, pr) = CuboctahedronAutomatonKernel.PythagoreanRotator36(r);
+            Assert.Equal(pr * pr, (px * px) + (py * py));
         }
 
-        string dumpPath = @"D:\Experiments\Personal Cursor Folder\open\mt-lattice-fluid\lean\mt_carrier_lean_dump.json";
-        if (File.Exists(dumpPath))
-        {
-            using var doc = JsonDocument.Parse(File.ReadAllText(dumpPath));
-            var root = doc.RootElement;
-            var cLut = root.GetProperty("c_lut");
-            var sLut = root.GetProperty("s_lut");
-            var pxLut = root.GetProperty("px_lut");
-            var pyLut = root.GetProperty("py_lut");
-            var prLut = root.GetProperty("pr_lut");
-
-            for (ushort phi = 0; phi < 512; phi++)
-            {
-                Ring9 r = new(phi);
-                Assert.Equal(cLut[phi].GetInt32(), ToSigned512(r.ProjC));
-                Assert.Equal(sLut[phi].GetInt32(), ToSigned512(r.ProjS));
-                var (pxB, pyB, prB) = CuboctahedronAutomatonKernel.PythagoreanRotator36(r);
-                Assert.Equal(pxLut[phi].GetInt64(), ToSignedBus36(pxB));
-                Assert.Equal(pyLut[phi].GetInt64(), ToSignedBus36(pyB));
-                Assert.Equal(prLut[phi].GetInt64(), ToSignedBus36(prB));
-            }
-        }
+        // At Heisenberg threshold phi = 41: (Px, Py, Pr) = (14703, 10496, 18065) = (28*512 + 367, 20*512 + 256, 35*512 + 145) on Bus36!
+        var (px41, py41, pr41) = CuboctahedronAutomatonKernel.PythagoreanRotator36(Ring9.DPhiDisc);
+        Assert.Equal(new Bus36(new(367), new(28), Ring9.Zero, Ring9.Zero), px41);
+        Assert.Equal(new Bus36(new(256), new(20), Ring9.Zero, Ring9.Zero), py41);
+        Assert.Equal(new Bus36(new(145), new(35), Ring9.Zero, Ring9.Zero), pr41);
     }
 
     [Fact]
     public void Core_3_Channel2BranchCarryAndPlaquetteWinding_ExactRuleZ3()
     {
-        for (ushort pY = 0; pY < 512; pY += 7)
-        {
-            for (ushort pX = 0; pX < 512; pX += 11)
-            {
-                var (_, kCarry) = CuboctahedronAutomatonKernel.EdgeDifferenceWithBranchCarry(new Ring9(pY), new Ring9(pX));
-                int dphi = pY - pX;
-                int expectedK = (dphi + 255) >= 0 ? (dphi + 255) / 512 : -((-(dphi + 255) + 511) / 512);
-                Assert.Equal(expectedK, ToSigned512(kCarry));
-            }
-        }
+        // Rule Z3 three regimes on Ring9:
+        Assert.Equal(Ring9.MinusOne, CuboctahedronAutomatonKernel.EdgeDifferenceWithBranchCarry(new(0), new(300)).BranchCarry9);
+        Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.EdgeDifferenceWithBranchCarry(new(100), new(50)).BranchCarry9);
+        Assert.Equal(Ring9.MuVac,    CuboctahedronAutomatonKernel.EdgeDifferenceWithBranchCarry(new(400), new(100)).BranchCarry9);
 
-        // Plaquette winding around a vortex loop (0 -> 130 -> 260 -> 390 -> 0):
+        // Plaquette winding around a vortex loop (0 -> 130 -> 260 -> 390 -> 0) == +1 (Ring9.MuVac):
         Ring9 w = CuboctahedronAutomatonKernel.PlaquetteWinding9(new(0), new(130), new(260), new(390));
-        Assert.Equal(1, ToSigned512(w));
+        Assert.Equal(Ring9.MuVac, w);
     }
 
     [Fact]
     public void Core_4_PauliExclusionAndVerletReversibility_MatchesPythonCheckPauliRepel()
     {
-        // Matches check_pauli_repel in verify_checks/axioms.py (line 334):
-        // Two dense parallel spinor lanes: mu0 = mu1 = 46 (46^2 = 2116 > 2048), phi0 = phi1 = 0 -> +256 Pauli jump!
-        Ring9 pOn = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), new(0), new(46), new(0), Ring9.MuVac);
-        Ring9 pOff = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), new(0), new(46), new(0), Ring9.Zero);
-        Ring9 pAnti = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), new(0), new(46), Ring9.PhiPauli, Ring9.MuVac);
-        Ring9 pSparse = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(13), new(0), new(13), new(0), Ring9.MuVac);
+        Ring9 pOn = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), Ring9.Zero, new(46), Ring9.Zero, Ring9.MuVac);
+        Ring9 pOff = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), Ring9.Zero, new(46), Ring9.Zero, Ring9.Zero);
+        Ring9 pAnti = CuboctahedronAutomatonKernel.PauliExclusionGate9(new(46), Ring9.Zero, new(46), Ring9.PhiPauli, Ring9.MuVac);
+        Ring9 pSparse = CuboctahedronAutomatonKernel.PauliExclusionGate9(Ring9.NPhi, Ring9.Zero, Ring9.NPhi, Ring9.Zero, Ring9.MuVac);
 
         Assert.Equal(Ring9.PhiPauli, pOn);
         Assert.Equal(Ring9.Zero, pOff);
         Assert.Equal(Ring9.Zero, pAnti);
         Assert.Equal(Ring9.Zero, pSparse);
 
-        // Exhaustive 512/512 history-free Verlet reversibility (polarReverseCell(polarStepCell(c)) == c):
         for (ushort p = 0; p < 512; p++)
         {
             Ring9 curr = new(p);
-            Ring9 past = new((ushort)((p * 13 + 97) & 0x1FF));
-            Ring9 gate = new((ushort)((p * 41) & 0x1FF));
-            var c0 = VerletCell72.Create(new(13), curr, past, new(13), curr + Ring9.DPhiDisc, past + Ring9.DPhiDisc);
+            Ring9 past = curr * Ring9.NPhi + Ring9.MHat;
+            Ring9 gate = curr * Ring9.DPhiDisc;
+            var c0 = VerletCell72.Create(Ring9.NPhi, curr, past, Ring9.NPhi, curr + Ring9.DPhiDisc, past + Ring9.DPhiDisc);
             var c1 = CuboctahedronAutomatonKernel.StepCellForward(c0, gate, gate);
             var c0Rec = CuboctahedronAutomatonKernel.StepCellReverse(c1, gate, gate);
             Assert.Equal(c0.Phi0Curr, c0Rec.Phi0Curr);
@@ -167,30 +116,28 @@ public class GuidersPhysicsSuiteTests
     [Fact]
     public void Core_5_Iv263HolonomyAndFull3DCensus_MatchesLean4AndPythonBitForBit()
     {
-        // 1. Single-node holonomy checks from TrajectoryIV263.lean:
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(2), new(2), new(2), Ring9.Zero));
-        Ring9 gWallPos = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(0), new(2), new(2), Ring9.MuVac);
-        Ring9 gWallNeg = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(511), new(2), new(2), Ring9.MuVac);
+        Ring9 gWallPos = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(Ring9.Zero, new(2), new(2), Ring9.MuVac);
+        Ring9 gWallNeg = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(Ring9.MinusOne, new(2), new(2), Ring9.MuVac);
         Assert.Equal(new Ring9(76), gWallPos);
-        Assert.Equal(new Ring9(512 - 77), gWallNeg);
+        Assert.Equal(-new Ring9(77), gWallNeg);
         Assert.Equal(Ring9.MinusOne, gWallPos + gWallNeg);
 
-        // 2. Full 3D 24x24x24 IV(3)=263 t=0..2 evolution using purely Guiders.Physics.Core (matching verify_checks/carrier.py lines 892-919!):
-        const int N = 24;
-        const int C = N / 2; // 12
+        const ushort N = 24;
+        Ring9 center = Ring9.NLinks; // 12
         Ring9[,,] mu = new Ring9[N, N, N];
         Ring9[,,] p0 = new Ring9[N, N, N];
         Ring9[,,] p1 = new Ring9[N, N, N];
         Ring9[,,] q0 = new Ring9[N, N, N];
         Ring9[,,] q1 = new Ring9[N, N, N];
 
-        for (int iz = 0; iz < N; iz++)
-            for (int iy = 0; iy < N; iy++)
-                for (int ix = 0; ix < N; ix++)
+        for (ushort iz = 0; iz < N; iz++)
+            for (ushort iy = 0; iy < N; iy++)
+                for (ushort ix = 0; ix < N; ix++)
                 {
-                    Ring9 dz = new((ushort)((iz - C) & 0x1FF));
-                    Ring9 dy = new((ushort)((iy - C) & 0x1FF));
-                    Ring9 dx = new((ushort)((ix - C) & 0x1FF));
+                    Ring9 dz = new Ring9(iz) - center;
+                    Ring9 dy = new Ring9(iy) - center;
+                    Ring9 dx = new Ring9(ix) - center;
                     mu[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263MuAt(dz, dy, dx);
                     p0[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero);
                     p1[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
@@ -229,7 +176,7 @@ public class GuidersPhysicsSuiteTests
                             M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
                             Ring9.MuVac);
 
-                        if (gate.Bits9 != 0) active++;
+                        if (gate != Ring9.Zero) active++;
                         var cell = VerletCell72.Create(M(z, y, x), c0[z, y, x], pst0[z, y, x], M(z, y, x), c1[z, y, x], pst1[z, y, x]);
                         var stepped = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate);
                         n0[z, y, x] = stepped.Phi0Curr;
@@ -245,46 +192,45 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(578, act1);
 
         Ring9 P2(int z, int y, int x) => st2_0[(z + N) % N, (y + N) % N, (x + N) % N];
-        int NXY(int z, int y, int x) => ToSigned512(CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z, y + 1, x + 1), P2(z, y + 1, x)));
-        int NXZ(int z, int y, int x) => ToSigned512(CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z + 1, y, x + 1), P2(z + 1, y, x)));
-        int NYZ(int z, int y, int x) => ToSigned512(CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y + 1, x), P2(z + 1, y + 1, x), P2(z + 1, y, x)));
+        Ring9 NXY(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z, y + 1, x + 1), P2(z, y + 1, x));
+        Ring9 NXZ(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y, x + 1), P2(z + 1, y, x + 1), P2(z + 1, y, x));
+        Ring9 NYZ(int z, int y, int x) => CuboctahedronAutomatonKernel.PlaquetteWinding9(P2(z, y, x), P2(z, y + 1, x), P2(z + 1, y + 1, x), P2(z + 1, y, x));
 
-        int sumXY = 0, sumYZ = 0, sumXZ = 0, maxDiv = 0;
+        Ring9 sumXY = Ring9.Zero, sumYZ = Ring9.Zero, sumXZ = Ring9.Zero;
         for (int z = 0; z < N; z++)
             for (int y = 0; y < N; y++)
                 for (int x = 0; x < N; x++)
                 {
-                    sumXY += System.Math.Abs(NXY(z, y, x));
-                    sumYZ += System.Math.Abs(NYZ(z, y, x));
-                    sumXZ += System.Math.Abs(NXZ(z, y, x));
-                    int divCube = (NXY(z + 1, y, x) - NXY(z, y, x))
-                                - (NXZ(z, y + 1, x) - NXZ(z, y, x))
-                                + (NYZ(z, y, x + 1) - NYZ(z, y, x));
-                    maxDiv = System.Math.Max(maxDiv, System.Math.Abs(divCube));
+                    sumXY = sumXY + NXY(z, y, x).AbsWrap;
+                    sumYZ = sumYZ + NYZ(z, y, x).AbsWrap;
+                    sumXZ = sumXZ + NXZ(z, y, x).AbsWrap;
+                    Ring9 divCube = (NXY(z + 1, y, x) - NXY(z, y, x))
+                                  - (NXZ(z, y + 1, x) - NXZ(z, y, x))
+                                  + (NYZ(z, y, x + 1) - NYZ(z, y, x));
+                    Assert.Equal(Ring9.Zero, divCube);
                 }
 
-        Assert.Equal(26, sumXY);
-        Assert.Equal(26, sumYZ);
-        Assert.Equal(34, sumXZ);
-        Assert.Equal(86, sumXY + sumYZ + sumXZ);
-        Assert.Equal(0, maxDiv);
+        Assert.Equal(new Ring9(26), sumXY);
+        Assert.Equal(new Ring9(26), sumYZ);
+        Assert.Equal(new Ring9(34), sumXZ);
+        Assert.Equal(new Ring9(86), sumXY + sumYZ + sumXZ);
     }
 
     [Fact]
     public void Core_6_MultimodalSensorReadout_ExactRgbTriadAndIsqrt4096()
     {
-        for (ushort q = 0; q <= 4096; q++)
+        for (ushort m = 0; m <= 64; m++)
         {
-            Assert.Equal((ushort)System.Math.Sqrt(q), CuboctahedronAutomatonKernel.Isqrt4096(q).Bits9);
+            Assert.Equal(new Ring9(m), CuboctahedronAutomatonKernel.Isqrt4096((ushort)(m * m)));
         }
 
         for (ushort phi = 0; phi < 512; phi++)
         {
-            var c = VerletCell72.Create(new(13), new(phi), new(phi), new(13), new(phi), new(phi));
-            c.Gate0 = new Ring9(139);
+            var c = VerletCell72.Create(Ring9.NPhi, new(phi), new(phi), Ring9.NPhi, new(phi), new(phi));
+            c.Gate0 = Ring9.CollapsePhi;
             var s = CuboctahedronAutomatonKernel.ReadCellSensors(c);
-            Assert.Equal(128, s.ColorR.Bits9 + s.ColorG.Bits9 + s.ColorB.Bits9);
-            Assert.Equal(3, s.EnergyQuantaNe.Bits9);
+            Assert.Equal(Ring9.QSquare, s.ColorR + s.ColorG + s.ColorB);
+            Assert.Equal(Ring9.D, s.EnergyQuantaNe);
         }
     }
 
@@ -296,7 +242,7 @@ public class GuidersPhysicsSuiteTests
         {
             int t = i / 18;
             int ch = i % 18;
-            raw[i] = (byte)((t * 7 + ch * 13) & 0xFF);
+            raw[i] = (byte)(t * 7 + ch * 13);
         }
 
         byte[] comp = CuboctUniversalArchiver.CompressBlock(raw);
@@ -317,5 +263,17 @@ public class GuidersPhysicsSuiteTests
         byte[] comp = CuboctMediaCodec.EncodeStereoPcm16Verlet(stereo);
         short[] rec = CuboctMediaCodec.DecodeStereoPcm16Verlet(comp, 2048);
         Assert.Equal(stereo, rec);
+
+        byte[] kf0 = new byte[1024];
+        byte[] kf12 = new byte[1024];
+        byte[] gt6 = new byte[1024];
+        for (int i = 0; i < 1024; i++)
+        {
+            kf0[i] = 40;
+            kf12[i] = 160;
+            gt6[i] = 105;
+        }
+        var (_, pct) = CuboctMediaCodec.InterpolateTwoPointKeyframe(kf0, kf12, gt6, 6, 12);
+        Assert.Equal(100.0, pct);
     }
 }

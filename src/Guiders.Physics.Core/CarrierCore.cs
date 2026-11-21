@@ -272,7 +272,7 @@ public readonly record struct Bus36(Ring9 L0, Ring9 L1, Ring9 L2, Ring9 L3)
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Bus36 MultiplySigned(Bus36 a, Bus36 b)
+    public static Bus36 operator *(Bus36 a, Bus36 b)
     {
         ulong ua = (ulong)a.L0.Bits9 | ((ulong)a.L1.Bits9 << 9) | ((ulong)a.L2.Bits9 << 18) | ((ulong)a.L3.Bits9 << 27);
         ulong ub = (ulong)b.L0.Bits9 | ((ulong)b.L1.Bits9 << 9) | ((ulong)b.L2.Bits9 << 18) | ((ulong)b.L3.Bits9 << 27);
