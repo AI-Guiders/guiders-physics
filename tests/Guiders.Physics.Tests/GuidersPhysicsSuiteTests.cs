@@ -39,6 +39,11 @@ public class GuidersPhysicsSuiteTests
         }
 
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(2), new(2), new(2), Ring9.Zero));
+        Ring9 gWallPos = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(0), new(2), new(2), Ring9.MuVac);
+        Ring9 gWallNeg = CuboctahedronAutomatonKernel.Compute12NeighborHolonomyGateAt(new(511), new(2), new(2), Ring9.MuVac);
+        Assert.Equal(new Ring9(76), gWallPos);
+        Assert.Equal(new Ring9(512 - 77), gWallNeg);
+        Assert.Equal(Ring9.MinusOne, gWallPos + gWallNeg);
     }
 
     [Fact]

@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 
 namespace Guiders.Physics.Core;
 
@@ -177,6 +176,130 @@ public readonly record struct Ring9
     }
 }
 
+/// <summary>
+/// Hardware 9-Bit Full Adder &amp; Multiplier Object (`Adder9`):
+/// Splits any 9-bit addition or multiplication into:
+///   - `Sum9` (low 9 bits [8:0] = Channel 1 wave phase on Z_512),
+///   - `Carry9` (high carry-out bits [17:9] = Channel 2 corpuscle quantum!).
+/// </summary>
+public readonly record struct Adder9
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 Sum9, Ring9 Carry9) AddWithCarry(Ring9 a, Ring9 b, Ring9 carryIn = default)
+    {
+        ushort full = (ushort)(a.Bits9 + b.Bits9 + carryIn.Bits9);
+        return (new Ring9(full), new Ring9((ushort)(full >> 9)));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 Lo9, Ring9 Hi9) MultiplyFull(Ring9 a, Ring9 b)
+    {
+        uint prod = (uint)a.Bits9 * b.Bits9;
+        return (new Ring9((ushort)prod), new Ring9((ushort)(prod >> 9)));
+    }
+}
+
+/// <summary>
+/// 4-Lane Cascaded 9-Bit Bus (`Bus36`: `L0`, `L1`, `L2`, `L3` = 4 x 9 bits = 36 bits = `B_1(3)`!).
+/// Represents a 36-bit two's-complement wire bundle built purely from four `Ring9` lanes
+/// chained through `Adder9.AddWithCarry`!
+/// </summary>
+public readonly record struct Bus36(Ring9 L0, Ring9 L1, Ring9 L2, Ring9 L3)
+{
+    public static Bus36 Zero     => new(Ring9.Zero, Ring9.Zero, Ring9.Zero, Ring9.Zero);
+    public static Bus36 One      => new(Ring9.MuVac, Ring9.Zero, Ring9.Zero, Ring9.Zero);
+    public static Bus36 MinusOne => new(Ring9.MinusOne, Ring9.MinusOne, Ring9.MinusOne, Ring9.MinusOne);
+    public static Bus36 QSquare  => new(Ring9.QSquare, Ring9.Zero, Ring9.Zero, Ring9.Zero);
+    public static Bus36 KP       => new(Ring9.KP, Ring9.Zero, Ring9.Zero, Ring9.Zero);
+    public static Bus36 EpsDenom => new(Ring9.Zero, Ring9.ZOxygen2_16, Ring9.Zero, Ring9.Zero); // 16 * 512 = 8192!
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 FromUnsignedRing9(Ring9 u) =>
+        new(u, Ring9.Zero, Ring9.Zero, Ring9.Zero);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 FromSignedRing9(Ring9 s)
+    {
+        ushort isNeg = s.BitQ1.Bits9;
+        Ring9 ext = new((ushort)(511 * isNeg));
+        return new(s, ext, ext, ext);
+    }
+
+    public Ring9 SignBit
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => L3.BitQ1;
+    }
+
+    public Ring9 IsNonNegative
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => Ring9.MuVac - L3.BitQ1;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 operator +(Bus36 a, Bus36 b)
+    {
+        var (s0, c0) = Adder9.AddWithCarry(a.L0, b.L0);
+        var (s1, c1) = Adder9.AddWithCarry(a.L1, b.L1, c0);
+        var (s2, c2) = Adder9.AddWithCarry(a.L2, b.L2, c1);
+        var (s3, _)  = Adder9.AddWithCarry(a.L3, b.L3, c2);
+        return new Bus36(s0, s1, s2, s3);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 operator ~(Bus36 a) =>
+        new(a.L0 ^ Ring9.MinusOne, a.L1 ^ Ring9.MinusOne, a.L2 ^ Ring9.MinusOne, a.L3 ^ Ring9.MinusOne);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 operator -(Bus36 a) => (~a) + One;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 operator -(Bus36 a, Bus36 b) => a + (-b);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 operator *(Bus36 a, Ring9 k)
+    {
+        var (p0Lo, p0Hi) = Adder9.MultiplyFull(a.L0, k);
+        var (p1Lo, p1Hi) = Adder9.MultiplyFull(a.L1, k);
+        var (p2Lo, p2Hi) = Adder9.MultiplyFull(a.L2, k);
+        var (p3Lo, _)    = Adder9.MultiplyFull(a.L3, k);
+
+        var (s1, c1) = Adder9.AddWithCarry(p1Lo, p0Hi);
+        var (s2, c2) = Adder9.AddWithCarry(p2Lo, p1Hi, c1);
+        var (s3, _)  = Adder9.AddWithCarry(p3Lo, p2Hi, c2);
+        return new Bus36(p0Lo, s1, s2, s3);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 MultiplySigned(Bus36 a, Bus36 b)
+    {
+        ulong ua = (ulong)a.L0.Bits9 | ((ulong)a.L1.Bits9 << 9) | ((ulong)a.L2.Bits9 << 18) | ((ulong)a.L3.Bits9 << 27);
+        ulong ub = (ulong)b.L0.Bits9 | ((ulong)b.L1.Bits9 << 9) | ((ulong)b.L2.Bits9 << 18) | ((ulong)b.L3.Bits9 << 27);
+        ulong prod = (ua * ub) & 0xF_FFFF_FFFFUL;
+        return new Bus36(
+            new Ring9((ushort)prod),
+            new Ring9((ushort)(prod >> 9)),
+            new Ring9((ushort)(prod >> 18)),
+            new Ring9((ushort)(prod >> 27)));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 FloorDivideToRing9(Bus36 num, Bus36 den)
+    {
+        ulong uNum = (ulong)num.L0.Bits9 | ((ulong)num.L1.Bits9 << 9) | ((ulong)num.L2.Bits9 << 18) | ((ulong)num.L3.Bits9 << 27);
+        ulong uDen = (ulong)den.L0.Bits9 | ((ulong)den.L1.Bits9 << 9) | ((ulong)den.L2.Bits9 << 18) | ((ulong)den.L3.Bits9 << 27);
+
+        ulong numNeg = (uNum >> 35) & 1UL;
+        ulong magNum = ((1UL - numNeg) * uNum + numNeg * ((0x10_0000_0000UL - uNum) & 0xF_FFFF_FFFFUL)) & 0xF_FFFF_FFFFUL;
+        ulong qMag = magNum / uDen;
+        ulong rMag = magNum - qMag * uDen;
+        ulong hasRem = 1UL - (1UL / (rMag + 1UL));
+        ulong qFloor = (1UL - numNeg) * qMag + numNeg * (0x10_0000_0000UL - qMag - hasRem);
+        return new Ring9((ushort)(qFloor & 0x1FFUL));
+    }
+}
+
 [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 9)]
 public struct VerletCell72
 {
@@ -272,11 +395,6 @@ public static unsafe class CuboctahedronAutomatonKernel
 
     private static delegate* unmanaged<ushort> InitHardwareRdseed9()
     {
-        // Direct x86_64 hardware silicon thermal TRNG instruction:
-        //   48 0F C7 F8    rdseed rax
-    // Direct x86_64 RDSEED instruction bytes (rdseed rax; jnc -6; and eax, 0x1FF; ret)
-        //   25 FF 01 00 00 and eax, 0x1FF (native 9-bit Ring9 mask!)
-        //   C3             ret
         IntPtr mem = VirtualAlloc(IntPtr.Zero, 64, 0x3000, 0x40);
         byte* p = (byte*)mem;
         p[0] = 0x48; p[1] = 0x0F; p[2] = 0xC7; p[3] = 0xF8;
@@ -429,8 +547,20 @@ public static unsafe class CuboctahedronAutomatonKernel
         ushort isLane1 = (ushort)(lane.Bits9 & 1);
         ushort shift = (ushort)(oct ^ (3 * isLane1));
         ushort bit = (ushort)(((263 % 256) >> shift) & 1);
-        Ring9 bg = dx * Ring9.DPhiDisc;
-        return bg + new Ring9((ushort)(123 * inBall.Bits9 * bit));
+
+        ushort xShifted = (ushort)(dx.Bits9 + 272 - 512 * dx.BitQ1.Bits9);
+        ushort rem13 = (ushort)(xShifted % 13);
+        ushort bg = (ushort)((rem13 * 41) & 0x1FF);
+        return new Ring9((ushort)(bg + 123 * inBall.Bits9 * bit));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Bus36 NeighborTerm(Ring9 m, Ring9 proj)
+    {
+        ushort isNeg = proj.BitQ1.Bits9;
+        Ring9 ext = new((ushort)(511 * isNeg));
+        Bus36 sProj = new(proj, ext, ext, ext);
+        return sProj * m;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -438,6 +568,20 @@ public static unsafe class CuboctahedronAutomatonKernel
     {
         Ring9 muC = Iv263MuAt(dz, dy, dx);
         Ring9 phiC = Iv263PhiAt(dz, dy, dx, lane);
+
+        Ring9 m0  = Iv263MuAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac);
+        Ring9 m1  = Iv263MuAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac);
+        Ring9 m2  = Iv263MuAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac);
+        Ring9 m3  = Iv263MuAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac);
+        Ring9 m4  = Iv263MuAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac);
+        Ring9 m5  = Iv263MuAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac);
+        Ring9 m6  = Iv263MuAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac);
+        Ring9 m7  = Iv263MuAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac);
+        Ring9 m8  = Iv263MuAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx);
+        Ring9 m9  = Iv263MuAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx);
+        Ring9 m10 = Iv263MuAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx);
+        Ring9 m11 = Iv263MuAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx);
+
         Ring9 d0  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
         Ring9 d1  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac, lane) - phiC;
         Ring9 d2  = Iv263PhiAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
@@ -451,12 +595,38 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 d10 = Iv263PhiAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx,                lane) - phiC;
         Ring9 d11 = Iv263PhiAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx,                lane) - phiC;
 
-        Ring9 sumS = d0.ProjS + d1.ProjS + d2.ProjS + d3.ProjS + d4.ProjS + d5.ProjS +
-                     d6.ProjS + d7.ProjS + d8.ProjS + d9.ProjS + d10.ProjS + d11.ProjS;
-        Ring9 sumC = d0.ProjC + d1.ProjC + d2.ProjC + d3.ProjC + d4.ProjC + d5.ProjC +
-                     d6.ProjC + d7.ProjC + d8.ProjC + d9.ProjC + d10.ProjC + d11.ProjC;
+        Bus36 sumMu = Bus36.FromUnsignedRing9(m0)  + Bus36.FromUnsignedRing9(m1)  + Bus36.FromUnsignedRing9(m2)  +
+                      Bus36.FromUnsignedRing9(m3)  + Bus36.FromUnsignedRing9(m4)  + Bus36.FromUnsignedRing9(m5)  +
+                      Bus36.FromUnsignedRing9(m6)  + Bus36.FromUnsignedRing9(m7)  + Bus36.FromUnsignedRing9(m8)  +
+                      Bus36.FromUnsignedRing9(m9)  + Bus36.FromUnsignedRing9(m10) + Bus36.FromUnsignedRing9(m11);
 
-        Ring9 rawGate = (muC * (sumS + Ring9.QSquare - sumC)) * Ring9.BezoutInv97;
+        Bus36 zrRaw = NeighborTerm(m0, d0.ProjC)   + NeighborTerm(m1, d1.ProjC)   + NeighborTerm(m2, d2.ProjC)   +
+                      NeighborTerm(m3, d3.ProjC)   + NeighborTerm(m4, d4.ProjC)   + NeighborTerm(m5, d5.ProjC)   +
+                      NeighborTerm(m6, d6.ProjC)   + NeighborTerm(m7, d7.ProjC)   + NeighborTerm(m8, d8.ProjC)   +
+                      NeighborTerm(m9, d9.ProjC)   + NeighborTerm(m10, d10.ProjC) + NeighborTerm(m11, d11.ProjC);
+
+        Bus36 ziRaw = NeighborTerm(m0, d0.ProjS)   + NeighborTerm(m1, d1.ProjS)   + NeighborTerm(m2, d2.ProjS)   +
+                      NeighborTerm(m3, d3.ProjS)   + NeighborTerm(m4, d4.ProjS)   + NeighborTerm(m5, d5.ProjS)   +
+                      NeighborTerm(m6, d6.ProjS)   + NeighborTerm(m7, d7.ProjS)   + NeighborTerm(m8, d8.ProjS)   +
+                      NeighborTerm(m9, d9.ProjS)   + NeighborTerm(m10, d10.ProjS) + NeighborTerm(m11, d11.ProjS);
+
+        Bus36 zr = zrRaw * muC;
+        Bus36 zi = ziRaw * muC;
+        Bus36 deficit = ((sumMu * muC) * Ring9.QSquare) - zr;
+
+        Ring9 ziNeg = zi.SignBit;
+        Ring9 ziPos = Ring9.MuVac - ziNeg;
+        Bus36 signedDeficit = (deficit * ziPos) + ((-deficit) * ziNeg);
+        Bus36 zDrive = zi + signedDeficit;
+
+        Bus36 r2 = (Bus36.FromUnsignedRing9(muC) * muC) * Ring9.QSquare;
+        Bus36 rawDen = zr + r2 + Bus36.EpsDenom;
+        Ring9 denPos = (rawDen - Bus36.One).IsNonNegative;
+        Ring9 denNeg = Ring9.MuVac - denPos;
+        Bus36 safeDen = (rawDen * denPos) + (Bus36.EpsDenom * denNeg);
+
+        Bus36 num = zDrive * Ring9.KP;
+        Ring9 rawGate = Bus36.FloorDivideToRing9(num, safeDen);
         return ApplyHeisenbergDeadband(rawGate);
     }
 
