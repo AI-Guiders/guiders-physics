@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Guiders.Physics.MediaCodec</RootNamespace>
+    <AssemblyName>Guiders.Physics.MediaCodec</AssemblyName>
+    <PackageId>AIGuiders.Physics.MediaCodec</PackageId>
+    <Version>0.1.0</Version>
+    <Description>4D lossless and two-point keyframe-drop (Stride N = 2, 4, 8, 12) video and audio streaming codec using SIMD Vector256 and 2nd-order Verlet parabola prediction.</Description>
+    <PackageTags>video;audio;codec;streaming;verlet;keyframe;simd;net11</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Guiders.Physics.Core\Guiders.Physics.Core.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

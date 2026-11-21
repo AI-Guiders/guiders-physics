@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Guiders.Physics.Core</RootNamespace>
+    <AssemblyName>Guiders.Physics.Core</AssemblyName>
+    <PackageId>AIGuiders.Physics.Core</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Native 9-bit ring (Ring9 in Z_512), 72-bit two-tick VerletCell72 (9 bytes exact), branchless Gray-code butterfly rotator, 12-neighbor cuboctahedron O_2(3) holonomy gate, multimodal sensor readout, and direct NVIDIA CUDA Driver API (nvcuda.dll) PTX kernel runner.</Description>
+    <PackageTags>physics;cuboctahedron;verlet;cellular-automaton;cuda;simd;net11</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

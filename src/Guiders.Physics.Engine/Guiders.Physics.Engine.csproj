@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Guiders.Physics.Engine</RootNamespace>
+    <AssemblyName>Guiders.Physics.Engine</AssemblyName>
+    <PackageId>AIGuiders.Physics.Engine</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Unified 3D physical, optical, thermal, shockwave/fracture, and binaural acoustic world simulation engine on 72-bit VerletCell72 cuboctahedral lattices with zero-memory time reversal.</Description>
+    <PackageTags>game-engine;physics-engine;cuboctahedron;verlet;binaural-audio;optics;time-reversal;net11</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Guiders.Physics.Core\Guiders.Physics.Core.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

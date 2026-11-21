@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>15</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Authors>Dmitry Karataev; AI Guiders</Authors>
+    <Company>AI Guiders</Company>
+    <Product>Guiders Physics</Product>
+    <RepositoryUrl>https://github.com/AI-Guiders/guiders-physics</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;NU1608</NoWarn>
+    <GuidersPhysicsRoot>$(MSBuildThisFileDirectory)</GuidersPhysicsRoot>
+  </PropertyGroup>
+</Project>

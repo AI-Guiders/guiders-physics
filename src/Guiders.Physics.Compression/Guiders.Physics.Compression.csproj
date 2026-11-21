@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Guiders.Physics.Compression</RootNamespace>
+    <AssemblyName>Guiders.Physics.Compression</AssemblyName>
+    <PackageId>AIGuiders.Physics.Compression</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Universal raw-byte stream and file archiver (like GZipStream) using Heisenberg [-40, +40] deadband probing and reversible 1st-order / 2-point Verlet predictors.</Description>
+    <PackageTags>compression;archiver;verlet;lossless;cuboctahedron;net11</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Guiders.Physics.Core\Guiders.Physics.Core.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

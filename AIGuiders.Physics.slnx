@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Guiders.Physics.Core/Guiders.Physics.Core.csproj" />
+    <Project Path="src/Guiders.Physics.Compression/Guiders.Physics.Compression.csproj" />
+    <Project Path="src/Guiders.Physics.MediaCodec/Guiders.Physics.MediaCodec.csproj" />
+    <Project Path="src/Guiders.Physics.Engine/Guiders.Physics.Engine.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Guiders.Physics.Tests/Guiders.Physics.Tests.csproj" />
+  </Folder>
+</Solution>

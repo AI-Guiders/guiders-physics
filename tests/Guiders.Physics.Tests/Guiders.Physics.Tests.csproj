@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Guiders.Physics.Core\Guiders.Physics.Core.csproj" />
+    <ProjectReference Include="..\..\src\Guiders.Physics.Compression\Guiders.Physics.Compression.csproj" />
+    <ProjectReference Include="..\..\src\Guiders.Physics.MediaCodec\Guiders.Physics.MediaCodec.csproj" />
+    <ProjectReference Include="..\..\src\Guiders.Physics.Engine\Guiders.Physics.Engine.csproj" />
+  </ItemGroup>
+</Project>
