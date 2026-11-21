@@ -90,7 +90,7 @@ public sealed class CuboctWorldScene3D
 
         foreach (var ev in _events)
         {
-            Ring9 dt = t - ev.BirthTick;
+            Ring9 dt = (t - ev.BirthTick) + Ring9.MuVac;
             Ring9 dist = (dz - ev.Z).AbsWrap + (dy - ev.Y).AbsWrap + (dx - ev.X).AbsWrap;
             Ring9 wavePhase = dist.JumpVerletParabola(ev.Mu, ev.GateImpulse, dt);
             Ring9 gatedWave = CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(wavePhase);
