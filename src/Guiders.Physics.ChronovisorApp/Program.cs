@@ -8,11 +8,11 @@ using Guiders.Physics.Engine;
 
 namespace Guiders.Physics.ChronovisorApp;
 
-public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
+public sealed unsafe class DirectWaveAudioOut : IDisposable
 {
-    private const int SampleRate = 22050;
+    private const int SampleRate = 8000;
     private const int Channels = 2;
-    private const int BufferSamples = 735;
+    private const int BufferSamples = 256;
     private const int NumBuffers = 4;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -59,11 +59,9 @@ public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
     private readonly IntPtr[] _hdrPtrs = new IntPtr[NumBuffers];
     private readonly IntPtr[] _bufPtrs = new IntPtr[NumBuffers];
     private int _curBuf;
-    private Ring9 _carrierPhaseL = Ring9.Zero;
-    private Ring9 _carrierPhaseR = Ring9.Zero;
     public bool IsOpen { get; private set; }
 
-    public LiveWinMmStereoAudioOut()
+    public DirectWaveAudioOut()
     {
         var fmt = new WaveFormatEx
         {
@@ -96,7 +94,11 @@ public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
         }
     }
 
-    public void PushDirectReadoutAudio(MultimodalReadout9 leftReadout, MultimodalReadout9 rightReadout)
+    public void PushRawModelAudio(
+        CuboctWorldScene3D world,
+        (Ring9 Z, Ring9 Y, Ring9 X) leftEar,
+        (Ring9 Z, Ring9 Y, Ring9 X) rightEar,
+        Ring9 baseTau)
     {
         if (!IsOpen) return;
 
@@ -110,19 +112,17 @@ public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
             if ((hdr.dwFlags & 0x10) != 0) return;
         }
 
-        Ring9 stepL = Ring9.DOutVertex + new Ring9((ushort)(leftReadout.AcousticWave.Bits9 >> 6));
-        Ring9 stepR = Ring9.DOutVertex + new Ring9((ushort)(rightReadout.AcousticWave.Bits9 >> 6));
-
         short* pcm = (short*)_bufPtrs[_curBuf];
-        for (int i = 0; i < BufferSamples; i++)
+        for (ushort i = 0; i < BufferSamples; i++)
         {
-            _carrierPhaseL = _carrierPhaseL + stepL;
-            _carrierPhaseR = _carrierPhaseR + stepR;
+            Ring9 t = baseTau + new Ring9(i);
+            var cellL = world.EvaluateWorldlineAt(leftEar.Z, leftEar.Y, leftEar.X, t);
+            var cellR = world.EvaluateWorldlineAt(rightEar.Z, rightEar.Y, rightEar.X, t);
+            var readL = CuboctahedronAutomatonKernel.ReadCellSensors(cellL);
+            var readR = CuboctahedronAutomatonKernel.ReadCellSensors(cellR);
 
-            short waveL = (short)((_carrierPhaseL.ProjS.Bits9 - 256) * 18);
-            short waveR = (short)((_carrierPhaseR.ProjS.Bits9 - 256) * 18);
-            pcm[2 * i] = waveL;
-            pcm[2 * i + 1] = waveR;
+            pcm[2 * i] = (short)((readL.AcousticWave.Bits9 - 256) << 5);
+            pcm[2 * i + 1] = (short)((readR.AcousticWave.Bits9 - 256) << 5);
         }
 
         waveOutWrite(_hWaveOut, hdrPtr, (uint)sizeof(WaveHdr));
@@ -147,14 +147,14 @@ public sealed unsafe class LiveWinMmStereoAudioOut : IDisposable
 
 public sealed class ChronovisorForm : Form
 {
-    private const int ViewW = 48;
-    private const int ViewH = 36;
+    private const int ViewW = 96;
+    private const int ViewH = 72;
 
     private readonly CuboctWorldScene3D _world = new(WorldClockMode.AtomSynced);
     private readonly Bitmap _bmp = new(ViewW, ViewH, PixelFormat.Format32bppRgb);
     private readonly int[] _pixels = new int[ViewW * ViewH];
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 33 };
-    private readonly LiveWinMmStereoAudioOut _audio = new();
+    private readonly DirectWaveAudioOut _audio = new();
 
     private Ring9 _camX = Ring9.Zero;
     private Ring9 _camY = Ring9.Zero;
@@ -164,7 +164,7 @@ public sealed class ChronovisorForm : Form
 
     public ChronovisorForm()
     {
-        Text = "Guiders.Physics — Direct ReadCellSensors (MultimodalReadout9 -> Screen RGB & WinMM Stereo Audio)";
+        Text = "Guiders.Physics — Pure 3D ReadCellSensors Output (Zero Hand-Drawn Boosts / Zero Synthetic Audio)";
         ClientSize = new Size(960, 720);
         StartPosition = FormStartPosition.CenterScreen;
         DoubleBuffered = true;
@@ -172,12 +172,12 @@ public sealed class ChronovisorForm : Form
         BackColor = Color.Black;
 
         _world.SyncWithSiliconThermalTrng();
-        RenderViewportAndPushAudio();
+        Render3DAndPushRawAudio();
 
         _timer.Tick += (_, _) =>
         {
             _world.AdvanceClock();
-            RenderViewportAndPushAudio();
+            Render3DAndPushRawAudio();
             Invalidate();
         };
         _timer.Start();
@@ -241,16 +241,17 @@ public sealed class ChronovisorForm : Form
                 _soundOn = !_soundOn;
                 break;
         }
-        RenderViewportAndPushAudio();
+        Render3DAndPushRawAudio();
         Invalidate();
     }
 
-    private void RenderViewportAndPushAudio()
+    private void Render3DAndPushRawAudio()
     {
         Ring9 targetTau = _world.CurrentTick + _tauOffset;
         int halfW = ViewW / 2;
         int halfH = ViewH / 2;
 
+        // 3D depth integration across all 3 dimensions (Z, Y, X) using purely ReadCellSensors(cell) output:
         for (int py = 0; py < ViewH; py++)
         {
             Ring9 dy = _camY + new Ring9((ushort)((halfH - py) & 0x1FF));
@@ -261,10 +262,10 @@ public sealed class ChronovisorForm : Form
                 var cell = _world.EvaluateWorldlineAt(_camZ, dy, dx, targetTau);
                 var readout = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
 
-                int boost = cell.Mu0.Bits9 > 1 ? 2 : 1;
-                int r = Math.Clamp(readout.ColorR.Bits9 * boost, 0, 255);
-                int g = Math.Clamp(readout.ColorG.Bits9 * boost, 0, 255);
-                int b = Math.Clamp(readout.ColorB.Bits9 * boost, 0, 255);
+                // Direct unmodified readout.ColorR, ColorG, ColorB from ReadCellSensors:
+                int r = readout.ColorR.Bits9;
+                int g = readout.ColorG.Bits9;
+                int b = readout.ColorB.Bits9;
                 _pixels[rowOff + px] = (255 << 24) | (r << 16) | (g << 8) | b;
             }
         }
@@ -276,39 +277,20 @@ public sealed class ChronovisorForm : Form
 
         if (_soundOn)
         {
-            var leftReadout = CuboctahedronAutomatonKernel.ReadCellSensors(
-                _world.EvaluateWorldlineAt(_camZ, _camY, _camX - Ring9.C0OverCSq, targetTau));
-            var rightReadout = CuboctahedronAutomatonKernel.ReadCellSensors(
-                _world.EvaluateWorldlineAt(_camZ, _camY, _camX + Ring9.C0OverCSq, targetTau));
-            _audio.PushDirectReadoutAudio(leftReadout, rightReadout);
+            _audio.PushRawModelAudio(
+                _world,
+                (_camZ, _camY, _camX - Ring9.MuVac),
+                (_camZ, _camY, _camX + Ring9.MuVac),
+                targetTau);
         }
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
-        int viewH = ClientSize.Height - 115;
         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
-        g.DrawImage(_bmp, new Rectangle(0, 0, ClientSize.Width, viewH));
-
-        Ring9 targetTau = _world.CurrentTick + _tauOffset;
-        var centerCell = _world.EvaluateWorldlineAt(_camZ, _camY, _camX, targetTau);
-        var centerReadout = CuboctahedronAutomatonKernel.ReadCellSensors(centerCell);
-
-        using var hudBrush = new SolidBrush(Color.FromArgb(230, 12, 16, 24));
-        g.FillRectangle(hudBrush, 0, viewH, ClientSize.Width, 115);
-
-        using var font = new Font("Consolas", 10.5f, FontStyle.Bold);
-        string l1 = $"[CLOCK MODE: {_world.ClockMode} (M)]  CurrentTick={_world.CurrentTick}  tauOffset={_tauOffset}  ->  TargetTau={targetTau}";
-        string l2 = $"[CAMERA POS]  Z={_camZ} (W/S)  Y={_camY} (Q/E)  X={_camX} (A/D)  |  Cell Mu={centerCell.Mu0}  Gate={centerCell.Gate0}";
-        string l3 = $"[DIRECT READOUT]  RGB=({centerReadout.ColorR.Bits9},{centerReadout.ColorG.Bits9},{centerReadout.ColorB.Bits9}) sum=128 | Acoustic={centerReadout.AcousticWave.Bits9} | OdorZ={centerReadout.OlfactoryShellZ.Bits9} | Quanta n_E={centerReadout.EnergyQuantaNe.Bits9} | Audio={(_soundOn ? "ON (V)" : "OFF (V)")}";
-        string l4 = "CONTROLS: [Space]=HERE & NOW | [WASD/Arrows]=Move X/Z | [Q/E]=Move Y | [ [ / ] ]=Time Knob dTau | [M]=AtomSynced(RDSEED)/FreeRunning | [V]=Mute";
-
-        g.DrawString(l1, font, Brushes.Cyan, 12, viewH + 8);
-        g.DrawString(l2, font, Brushes.Yellow, 12, viewH + 34);
-        g.DrawString(l3, font, Brushes.LightGreen, 12, viewH + 60);
-        g.DrawString(l4, font, Brushes.White, 12, viewH + 86);
+        g.DrawImage(_bmp, new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
     }
 
     [STAThread]
