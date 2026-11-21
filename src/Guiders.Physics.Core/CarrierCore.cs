@@ -413,8 +413,8 @@ public sealed class CuboctahedronCarrier
                     Ring9 dy = new Ring9(iy) - center;
                     Ring9 dx = new Ring9(ix) - center;
                     Ring9 mu = CuboctahedronAutomatonKernel.Iv263MuAt(dz, dy, dx);
-                    Ring9 p0 = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero);
-                    Ring9 p1 = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
+                    Ring9 p0 = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero, center);
+                    Ring9 p1 = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac, center);
                     _grid[iz, iy, ix] = VerletCell72.Create(mu, p0, p0, mu, p1, p1);
                 }
     }
@@ -664,7 +664,7 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9.MuVac + Ring9.NLinks * Iv263InBall9(dz, dy, dx);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Ring9 Iv263PhiAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane)
+    public static Ring9 Iv263PhiAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane, Ring9 centerX = default)
     {
         Ring9 inBall = Iv263InBall9(dz, dy, dx);
         ushort zPos = (ushort)(1 - dz.BitQ1.Bits9);
@@ -675,7 +675,8 @@ public static unsafe class CuboctahedronAutomatonKernel
         ushort shift = (ushort)(oct ^ (3 * isLane1));
         ushort bit = (ushort)(((263 % 256) >> shift) & 1);
 
-        ushort xShifted = (ushort)(dx.Bits9 + 272 - 512 * dx.BitQ1.Bits9);
+        ushort cx = (ushort)((1 - (1 / (centerX.Bits9 + 1))) * centerX.Bits9 + (1 / (centerX.Bits9 + 1)) * 12);
+        ushort xShifted = (ushort)(dx.Bits9 + cx + 260 - 512 * dx.BitQ1.Bits9);
         ushort rem13 = (ushort)(xShifted % 13);
         ushort bg = (ushort)((rem13 * 41) & 0x1FF);
         return new Ring9((ushort)(bg + 123 * inBall.Bits9 * bit));
