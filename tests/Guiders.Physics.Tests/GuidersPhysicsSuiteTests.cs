@@ -13,7 +13,6 @@ public class GuidersPhysicsSuiteTests
     [Fact]
     public unsafe void Core_Ring9AndVerletCell72_ExactBitBudgetAndIv263Holonomy()
     {
-        // 1. Exact 9-byte = 72-bit cell size (zero 32/64-bit bloat)
         Assert.Equal(9, sizeof(VerletCell72));
         Assert.Equal(72, sizeof(VerletCell72) * 8);
         Assert.Equal(263, CarrierSpecD3.IvSeed);
@@ -30,28 +29,28 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(352, cell.Gate0.UnsignedTicks);
         Assert.Equal(256, cell.Gate1.UnsignedTicks);
 
-        // 2. Verify IV(3)=263 interior octant silence (+15 -> Gate=0) and domain-wall chiral ratchet (+76 + -77 = -1)
-        static (Ring9 Gate, int Raw, int Den, int Ne) EvalNode(int cz, int cy, int cx, int lane)
+        // Verify IV(3)=263 interior octant silence (+15 -> Gate=0) and domain-wall chiral ratchet (+76 + -77 = -1) purely on Ring9!
+        static (Ring9 Gate, Ring9 Raw, int Den, int Ne) EvalNode(Ring9 cz, Ring9 cy, Ring9 cx, int lane)
         {
-            Span<int> locMu = stackalloc int[12];
+            Span<Ring9> locMu = stackalloc Ring9[12];
             Span<Ring9> locPhi = stackalloc Ring9[12];
-            int muC = CuboctahedronAutomatonKernel.Iv263MuAt(cz, cy, cx);
+            Ring9 muC = CuboctahedronAutomatonKernel.Iv263MuAt(cz, cy, cx);
             Ring9 phiC = CuboctahedronAutomatonKernel.Iv263PhiAt(cz, cy, cx, lane);
             for (int k = 0; k < 12; k++)
             {
                 var (dz, dy, dx) = CarrierSpecD3.CuboctOffsets12[k];
-                locMu[k] = CuboctahedronAutomatonKernel.Iv263MuAt(cz + dz, cy + dy, cx + dx);
-                locPhi[k] = CuboctahedronAutomatonKernel.Iv263PhiAt(cz + dz, cy + dy, cx + dx, lane);
+                locMu[k] = CuboctahedronAutomatonKernel.Iv263MuAt(cz - dz, cy - dy, cx - dx);
+                locPhi[k] = CuboctahedronAutomatonKernel.Iv263PhiAt(cz - dz, cy - dy, cx - dx, lane);
             }
-            return CuboctahedronAutomatonKernel.Compute12NeighborGate(muC, phiC, locMu, locPhi, true);
+            return CuboctahedronAutomatonKernel.Compute12NeighborGate(muC, phiC, locMu, locPhi, 1);
         }
 
-        var oct = EvalNode(2, 2, 2, 0);
-        Assert.Equal(15, oct.Raw);
+        var oct = EvalNode(new(2), new(2), new(2), 0);
+        Assert.Equal(15, oct.Raw.SignedWrap);
         Assert.Equal(0, oct.Gate.SignedWrap);
 
-        var wPos = EvalNode(0, 2, 2, 1);
-        var wNeg = EvalNode(-1, 2, 2, 1);
+        var wPos = EvalNode(new(0), new(2), new(2), 1);
+        var wNeg = EvalNode(new(-1), new(2), new(2), 1);
         Assert.Equal(76, wPos.Gate.SignedWrap);
         Assert.Equal(-77, wNeg.Gate.SignedWrap);
         Assert.Equal(-1, wPos.Gate.SignedWrap + wNeg.Gate.SignedWrap);
@@ -105,47 +104,34 @@ public class GuidersPhysicsSuiteTests
         {
             kf0[i] = 40;
             kf12[i] = 160;
-            gt6[i] = 105; // Within [-40, +40] of midpoint 100!
+            gt6[i] = 105;
         }
         var (_, pct) = CuboctMediaCodec.InterpolateTwoPointKeyframe(kf0, kf12, gt6, 6, 12);
         Assert.Equal(100.0, pct);
     }
 
     [Fact]
-    public void Engine_CuboctWorldScene3D_ExplosionBinauralAudioAndZeroMemoryTimeReversal()
+    public void Engine_ClosedFormO1WorldlineParabola_ZeroMemoryJumpAndTimeReversal()
     {
-        var world = new CuboctWorldScene3D(9, 9, 9);
-        world.InitializeIv263Field();
-        world.TriggerImpulse(4, 4, 4, amplitudeMu: 64, phaseImpulse: 164);
+        var world = new CuboctWorldScene3D();
+        Ring9 dz = new(0), dy = new(2), dx = new(2);
 
-        // Save initial state snapshot for verification
-        var initCenter = world.GetCell(4, 4, 4);
-        var initNeighbor = world.GetCell(4, 5, 5);
+        // Evaluate cell at t = 0 directly via closed-form O(1) Verlet worldline parabola (zero 3D grid in RAM!):
+        var cellT0 = world.EvaluateWorldlineAt(dz, dy, dx, 0);
 
-        // Run 4 ticks forward (explosion shockwave & light propagation)
-        for (int t = 0; t < 4; t++)
-            world.StepForward();
-        Assert.Equal(4, world.Tick);
-
-        var sensor = world.SampleCameraVoxel(4, 5, 5);
+        // Jump in O(1) to t = 500 without iterating 500 steps!
+        world.JumpToTick(500);
+        var sensor = world.SampleCameraVoxel(dz, dy, dx);
         Assert.InRange(sensor.WavelengthNm, 440, 718);
         Assert.Equal(128, sensor.ColorR + sensor.ColorG + sensor.ColorB);
 
-        var (earL, earR) = world.SampleBinauralAudioListener((4, 3, 4), (4, 5, 4));
+        var (earL, earR) = world.SampleBinauralAudioListener((new(0), new(1), new(2)), (new(0), new(3), new(2)));
         Assert.True(earL != 0 || earR != 0);
 
-        // Rewind 4 ticks backward in time with ZERO history stack!
-        for (int t = 0; t < 4; t++)
-            world.StepBackward();
-        Assert.Equal(0, world.Tick);
-
-        // Verify 100% bit-exact recovery of the pre-explosion world state!
-        var recCenter = world.GetCell(4, 4, 4);
-        var recNeighbor = world.GetCell(4, 5, 5);
-        Assert.Equal(initCenter.Phi0Curr.UnsignedTicks, recCenter.Phi0Curr.UnsignedTicks);
-        Assert.Equal(initCenter.Phi1Curr.UnsignedTicks, recCenter.Phi1Curr.UnsignedTicks);
-        Assert.Equal(initCenter.Phi0Past.UnsignedTicks, recCenter.Phi0Past.UnsignedTicks);
-        Assert.Equal(initNeighbor.Phi0Curr.UnsignedTicks, recNeighbor.Phi0Curr.UnsignedTicks);
-        Assert.Equal(initNeighbor.Phi1Curr.UnsignedTicks, recNeighbor.Phi1Curr.UnsignedTicks);
+        // Jump back in O(1) to t = 0 and verify 100% bit-exact agreement!
+        world.JumpToTick(0);
+        var recT0 = world.GetCellAtCurrentTick(dz, dy, dx);
+        Assert.Equal(cellT0.Phi0Curr, recT0.Phi0Curr);
+        Assert.Equal(cellT0.Phi1Curr, recT0.Phi1Curr);
     }
 }

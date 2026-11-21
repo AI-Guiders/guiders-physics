@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 namespace Guiders.Physics.Core;
 
 /// <summary>
-/// Complete integer passport of the M-layer carrier derived purely from spatial dimension D = 3.
-/// Even unity is computed as MuVac = D*D - (1 &lt;&lt; D) = 9 - 8 = 1.
+/// Complete passport of the M-layer carrier derived purely from spatial dimension D = 3.
+/// All ring constants live natively in 9 bits (Z_512).
 /// </summary>
 public static class CarrierSpecD3
 {
@@ -30,6 +30,7 @@ public static class CarrierSpecD3
     public const int EpsDenom = KP * QSquare;                 // 8192
     public const int NPhi = MuVac + NLinks;                   // 13
     public const int DPhiDisc = (NRing + NPhi + NTri) / NPhi; // 41
+    public const int BezoutInv41 = 25;                        // 25 * 41 === 1 (mod 512)
     public const int SeamTicks = NPhi * DPhiDisc - NRing;     // 21
     public const int MHat = MuVac + NLinks * NTri;            // 97
     public const int CollapsePhi = QSquare + NLinks - MuVac;  // 139
@@ -37,24 +38,36 @@ public static class CarrierSpecD3
     public const int B1SingleTickBits = DInSquare * ModBits;  // 36 bits
     public const int B2TwoTickBits = NTri * ModBits;          // 72 bits = 9 bytes!
 
-    public static readonly (int Dz, int Dy, int Dx)[] CuboctOffsets12 =
+    // Canonical 12 FCC Cuboctahedron O_2(3) neighbor offsets in Ring9
+    public static readonly (Ring9 Dz, Ring9 Dy, Ring9 Dx)[] CuboctOffsets12 =
     [
-        ( 0,  1,  1), ( 0,  1, -1), ( 0, -1,  1), ( 0, -1, -1),
-        ( 1,  0,  1), ( 1,  0, -1), (-1,  0,  1), (-1,  0, -1),
-        ( 1,  1,  0), ( 1, -1,  0), (-1,  1,  0), (-1, -1,  0)
+        (new(0),   new(1),   new(1)),   (new(0),   new(1),   new(511)),
+        (new(0),   new(511), new(1)),   (new(0),   new(511), new(511)),
+        (new(1),   new(0),   new(1)),   (new(1),   new(0),   new(511)),
+        (new(511), new(0),   new(1)),   (new(511), new(0),   new(511)),
+        (new(1),   new(1),   new(0)),   (new(1),   new(511), new(0)),
+        (new(511), new(1),   new(0)),   (new(511), new(511), new(0))
     ];
 }
 
 /// <summary>
-/// Native 9-Bit Modular Ring Element in Z_512 (bits [8:0]) with 100% branchless
-/// Gray-Quadrant Butterfly Rotator (Z_4^Gray x Z_128) and Octal Triad (Z_8^3) representation.
+/// Native 9-Bit Modular Ring Element in Z_512 (bits [8:0]):
+/// - 100% branchless Gray-Quadrant Butterfly Rotator (C_3, S_3)
+/// - Closed-form O(1) Verlet Worldline Parabola `JumpVerletParabola(v0, gatePhi, t)`
+/// - Bezout Coordinate Decoder `* 25 mod 512` (`41^-1 === 25 mod 512`)
 /// </summary>
 public readonly record struct Ring9
 {
-    private readonly ushort _bits9;
+    private readonly ushort _bits9; // Strictly 9 bits [0..511]
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Ring9(int value) => _bits9 = (ushort)(value & CarrierSpecD3.RingMask);
+
+    public ushort Bits9
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => _bits9;
+    }
 
     public int UnsignedTicks
     {
@@ -62,12 +75,17 @@ public readonly record struct Ring9
         get => _bits9;
     }
 
+    /// <summary>Branchless signed representative in (-256, +256].</summary>
     public int SignedWrap
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => CarrierSpecD3.PhiPauli - ((CarrierSpecD3.PhiPauli - _bits9) & CarrierSpecD3.RingMask);
     }
 
+    /// <summary>
+    /// 100% branchless Gray-Quadrant Butterfly projections (C_3(phi), S_3(phi)) on 9-bit wires:
+    /// bit 8 = q1 (half-turn 256), bit 7 = q0 (quadrant 128), 7-bit mantissa m7 = phi[6:0].
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (int ProjC, int ProjS) GrayButterflyRotator()
     {
@@ -94,6 +112,29 @@ public readonly record struct Ring9
         get => GrayButterflyRotator().ProjS;
     }
 
+    /// <summary>
+    /// Closed-form O(1) Verlet Worldline Parabola Jump on Z_512 (`verletParabolaClosedFormJumpOp`):
+    /// Jumps directly from initial phase `this = phi(0)` to ANY arbitrary time tick `t` (forward or backward!)
+    /// in O(1) without stepping through intermediate ticks:
+    /// `phi(t) = (phi(0) + t * v0 + (t * (t + 1) / 2) * gatePhi) mod 512`.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Ring9 JumpVerletParabola(Ring9 v0, Ring9 gatePhi, int t)
+    {
+        int triT = (t * (t + 1)) >> 1;
+        return new Ring9(_bits9 + t * v0.SignedWrap + triT * gatePhi.SignedWrap);
+    }
+
+    /// <summary>
+    /// Coordinate-free Bezout inverse of Heisenberg quantum 41 (`25 * 41 === 1 mod 512`).
+    /// Decodes spatial coordinate or time tick in 1 modular multiplication on Ring9!
+    /// </summary>
+    public Ring9 DecodeBezout41
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        get => new(_bits9 * CarrierSpecD3.BezoutInv41);
+    }
+
     public (int O2, int O1, int O0) OctalTriad => ((_bits9 >> 6) & 7, (_bits9 >> 3) & 7, _bits9 & 7);
 
     public Ring9 PauliPartner
@@ -109,6 +150,9 @@ public readonly record struct Ring9
     public static Ring9 operator -(Ring9 a, Ring9 b) => new(a._bits9 - b._bits9);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 operator *(Ring9 a, Ring9 b) => new(a._bits9 * b._bits9);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Ring9 operator *(Ring9 a, int k) => new(a._bits9 * k);
 
     public override string ToString()
@@ -120,8 +164,8 @@ public readonly record struct Ring9
 
 /// <summary>
 /// Exact 72-Bit (9-Byte, Pack = 1) Two-Tick Verlet Polar Cell:
-/// packs eight 9-bit ring lanes (mu0, phi0_curr, phi0_prev, mu1, phi1_curr, phi1_prev, gate0, gate1)
-/// into literally 9 bytes = 72 bits (`B_2(3) = 8 * 9 = 72 bits`) with ZERO 32/64-bit padding!
+/// packs eight 9-bit `Ring9` lanes (Mu0, Phi0Curr, Phi0Past, Mu1, Phi1Curr, Phi1Past, Gate0, Gate1)
+/// into literally 9 bytes = 72 bits (`B_2(3) = 8 * 9 = 72 bits`) with ZERO padding and ZERO branches!
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1, Size = 9)]
 public struct VerletCell72
@@ -132,28 +176,20 @@ public struct VerletCell72
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public readonly Ring9 GetLane9(int laneIdx)
     {
-        int bitOffset = laneIdx * 9;
-        if (bitOffset <= 54)
-            return new Ring9((int)((_lo64 >> bitOffset) & 0x1FFUL));
-        int loBit = (int)((_lo64 >> 63) & 1UL);
-        return new Ring9(loBit | (_hi8 << 1));
+        UInt128 w = (UInt128)_lo64 | ((UInt128)_hi8 << 64);
+        int bits = (int)((w >> (laneIdx * CarrierSpecD3.ModBits)) & (UInt128)CarrierSpecD3.RingMask);
+        return new Ring9(bits);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void SetLane9(int laneIdx, Ring9 val)
     {
-        ulong v = (ulong)(val.UnsignedTicks & 0x1FF);
-        int bitOffset = laneIdx * 9;
-        if (bitOffset <= 54)
-        {
-            ulong mask = ~(0x1FFUL << bitOffset);
-            _lo64 = (_lo64 & mask) | (v << bitOffset);
-        }
-        else
-        {
-            _lo64 = (_lo64 & 0x7FFF_FFFF_FFFF_FFFFUL) | ((v & 1UL) << 63);
-            _hi8 = (byte)(v >> 1);
-        }
+        int shift = laneIdx * CarrierSpecD3.ModBits;
+        UInt128 w = (UInt128)_lo64 | ((UInt128)_hi8 << 64);
+        UInt128 mask = ~((UInt128)CarrierSpecD3.RingMask << shift);
+        w = (w & mask) | ((UInt128)val.Bits9 << shift);
+        _lo64 = (ulong)w;
+        _hi8 = (byte)(w >> 64);
     }
 
     public Ring9 Mu0      { readonly get => GetLane9(0); set => SetLane9(0, value); }
@@ -165,15 +201,39 @@ public struct VerletCell72
     public Ring9 Gate0    { readonly get => GetLane9(6); set => SetLane9(6, value); }
     public Ring9 Gate1    { readonly get => GetLane9(7); set => SetLane9(7, value); }
 
-    public static VerletCell72 Create(int mu0, int p0Curr, int p0Past, int mu1, int p1Curr, int p1Past)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static VerletCell72 Create(Ring9 mu0, Ring9 p0Curr, Ring9 p0Past, Ring9 mu1, Ring9 p1Curr, Ring9 p1Past)
     {
         VerletCell72 c = default;
-        c.Mu0 = new Ring9(mu0);
-        c.Phi0Curr = new Ring9(p0Curr);
-        c.Phi0Past = new Ring9(p0Past);
-        c.Mu1 = new Ring9(mu1);
-        c.Phi1Curr = new Ring9(p1Curr);
-        c.Phi1Past = new Ring9(p1Past);
+        c.Mu0 = mu0;
+        c.Phi0Curr = p0Curr;
+        c.Phi0Past = p0Past;
+        c.Mu1 = mu1;
+        c.Phi1Curr = p1Curr;
+        c.Phi1Past = p1Past;
+        return c;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static VerletCell72 Create(int mu0, int p0Curr, int p0Past, int mu1, int p1Curr, int p1Past) =>
+        Create(new Ring9(mu0), new Ring9(p0Curr), new Ring9(p0Past), new Ring9(mu1), new Ring9(p1Curr), new Ring9(p1Past));
+
+    /// <summary>
+    /// Closed-form O(1) Worldline Evaluation of this 72-bit cell at ANY arbitrary time tick `t`!
+    /// Uses the stationary-gate Verlet parabola `phi(t) = phi(0) + (t*(t+1)/2)*Gate` directly on `Ring9`!
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public readonly VerletCell72 EvaluateClosedFormAtTick(int t)
+    {
+        Ring9 v0_0 = Phi0Curr - Phi0Past;
+        Ring9 v0_1 = Phi1Curr - Phi1Past;
+        Ring9 p0AtT = Phi0Curr.JumpVerletParabola(v0_0, Gate0, t);
+        Ring9 p0AtTMinus1 = Phi0Curr.JumpVerletParabola(v0_0, Gate0, t - 1);
+        Ring9 p1AtT = Phi1Curr.JumpVerletParabola(v0_1, Gate1, t);
+        Ring9 p1AtTMinus1 = Phi1Curr.JumpVerletParabola(v0_1, Gate1, t - 1);
+        var c = Create(Mu0, p0AtT, p0AtTMinus1, Mu1, p1AtT, p1AtTMinus1);
+        c.Gate0 = Gate0;
+        c.Gate1 = Gate1;
         return c;
     }
 }
@@ -193,25 +253,72 @@ public readonly record struct MultimodalReadout(
     int ThermalQuantaNe);
 
 /// <summary>
-/// 100% Branchless 12-Neighbor Cuboctahedron O_2(3) Cellular Automaton Core in .NET 11.
+/// 100% Branchless 9-Bit Ring9 &amp; 12-Neighbor Cuboctahedron O_2(3) Closed-Form Worldline Kernel.
+/// Zero `if` statements and zero `?:` ternary operators in the M-layer data path!
 /// </summary>
 public static class CuboctahedronAutomatonKernel
 {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static int BranchlessSignNonNeg(int x) => 1 - 2 * ((x >> 31) & 1);
+    public static int BranchlessAbs(int x) => (x ^ (x >> 31)) - (x >> 31);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static long BranchlessAbs64(long x) => (x ^ (x >> 63)) - (x >> 63);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessSignNonNeg64(long x) => 1 + (int)((x >> 63) << 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessIsNonNeg(int x) => 1 - ((x >> 31) & 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessIsNonNeg64(long x) => 1 - (int)((x >> 63) & 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessIsZeroNat(int k) => 1 / (BranchlessMax(k, 0) + 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessIsPosNat(int k) => 1 - (1 / (BranchlessMax(k, 0) + 1));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessBlend(int sel, int a, int b) => sel * a + (1 - sel) * b;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static long BranchlessBlend64(long sel, long a, long b) => sel * a + (1L - sel) * b;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessMin(int a, int b) => (int)(((long)a + b - BranchlessAbs64((long)a - b)) >> 1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int BranchlessMax(int a, int b) => (int)(((long)a + b + BranchlessAbs64((long)a - b)) >> 1);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int FloorDivInt(long num, long den)
     {
         long q = num / den;
-        long r = num % den;
-        if ((r != 0) && ((r < 0) ^ (den < 0))) q--;
-        return (int)q;
+        long r = num - q * den;
+        return (int)(q - ((r >> 63) & 1L));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (Ring9 GatePhi, int RawWrapped, int DenomD, int EnergyNe) Compute12NeighborGate(
-        int muC, Ring9 phiC, ReadOnlySpan<int> nbMu, ReadOnlySpan<Ring9> nbPhi, bool includeEvenDeficit = true)
+    public static int BranchQuotient512(int dphi) =>
+        FloorDivInt(dphi + (CarrierSpecD3.PhiPauli - 1), CarrierSpecD3.NRing);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int FaceWindingFromEdges(int k01, int k12, int k32, int k03) =>
+        -(k01 + k12 - k32 - k03);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 SelectLeadingGate(Ring9 g0, Ring9 g1)
+    {
+        int a0 = BranchlessAbs(g0.SignedWrap);
+        int a1 = BranchlessAbs(g1.SignedWrap);
+        int sel1 = BranchlessIsPosNat(BranchlessMax(a1 - a0, 0));
+        return new Ring9(BranchlessBlend(sel1, g1.SignedWrap, g0.SignedWrap));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 GatePhi, Ring9 RawWrapped, int DenomD, int EnergyNe) Compute12NeighborGate(
+        Ring9 muC, Ring9 phiC, ReadOnlySpan<Ring9> nbMu, ReadOnlySpan<Ring9> nbPhi, int includeEvenDeficitFlag = 1)
     {
         long zrRaw = 0;
         long ziRaw = 0;
@@ -220,35 +327,35 @@ public static class CuboctahedronAutomatonKernel
         {
             Ring9 dphi = nbPhi[k] - phiC;
             var (cProj, sProj) = dphi.GrayButterflyRotator();
-            int m = nbMu[k];
+            int m = nbMu[k].Bits9;
             zrRaw += (long)m * cProj;
             ziRaw += (long)m * sProj;
             sumMu += m;
         }
-        long zr = (long)muC * zrRaw;
-        long zi = (long)muC * ziRaw;
-        long deficit = (long)muC * sumMu * CarrierSpecD3.QSquare - zr;
-        int sgnZi = BranchlessSignNonNeg((int)zi);
-        long zDrive = includeEvenDeficit ? (zi + sgnZi * deficit) : zi;
-        long rawDen = zr + (long)muC * muC * CarrierSpecD3.QSquare + CarrierSpecD3.EpsDenom;
-        long safeDen = rawDen > 0 ? rawDen : CarrierSpecD3.EpsDenom;
+        int mc = muC.Bits9;
+        long zr = (long)mc * zrRaw;
+        long zi = (long)mc * ziRaw;
+        long deficit = (long)mc * sumMu * CarrierSpecD3.QSquare - zr;
+        int sgnZi = BranchlessSignNonNeg64(zi);
+        long zDrive = zi + includeEvenDeficitFlag * sgnZi * deficit;
+        long rawDen = zr + (long)mc * mc * CarrierSpecD3.QSquare + CarrierSpecD3.EpsDenom;
+        long isDenPos = BranchlessIsNonNeg64(rawDen - 1);
+        long safeDen = BranchlessBlend64(isDenPos, rawDen, CarrierSpecD3.EpsDenom);
 
-        int qFloor = FloorDivInt(CarrierSpecD3.KP * zDrive, safeDen);
-        int rawWrap = new Ring9(qFloor).SignedWrap;
-        int absRaw = Math.Abs(rawWrap);
+        Ring9 rawRing = new(FloorDivInt(CarrierSpecD3.KP * zDrive, safeDen));
+        int rawWrap = rawRing.SignedWrap;
+        int absRaw = BranchlessAbs(rawWrap);
         int ne = absRaw / CarrierSpecD3.DPhiDisc;
-        int gateSigned = absRaw >= CarrierSpecD3.DPhiDisc ? rawWrap : 0;
-        return (new Ring9(gateSigned), rawWrap, (int)safeDen, ne);
+        int gateSigned = BranchlessIsPosNat(ne) * rawWrap;
+        return (new Ring9(gateSigned), rawRing, (int)safeDen, ne);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static VerletCell72 StepCellForward(VerletCell72 cell, Ring9 gate0, Ring9 gate1)
     {
-        Ring9 p0Next = new(2 * cell.Phi0Curr.UnsignedTicks - cell.Phi0Past.UnsignedTicks + gate0.SignedWrap);
-        Ring9 p1Next = new(2 * cell.Phi1Curr.UnsignedTicks - cell.Phi1Past.UnsignedTicks + gate1.SignedWrap);
-        var next = VerletCell72.Create(
-            cell.Mu0.UnsignedTicks, p0Next.UnsignedTicks, cell.Phi0Curr.UnsignedTicks,
-            cell.Mu1.UnsignedTicks, p1Next.UnsignedTicks, cell.Phi1Curr.UnsignedTicks);
+        Ring9 p0Next = cell.Phi0Curr + (cell.Phi0Curr - cell.Phi0Past) + gate0;
+        Ring9 p1Next = cell.Phi1Curr + (cell.Phi1Curr - cell.Phi1Past) + gate1;
+        var next = VerletCell72.Create(cell.Mu0, p0Next, cell.Phi0Curr, cell.Mu1, p1Next, cell.Phi1Curr);
         next.Gate0 = gate0;
         next.Gate1 = gate1;
         return next;
@@ -259,51 +366,86 @@ public static class CuboctahedronAutomatonKernel
     {
         Ring9 p0Curr = steppedCell.Phi0Past;
         Ring9 p1Curr = steppedCell.Phi1Past;
-        Ring9 p0PastRec = new(2 * p0Curr.UnsignedTicks - steppedCell.Phi0Curr.UnsignedTicks + gate0AtT.SignedWrap);
-        Ring9 p1PastRec = new(2 * p1Curr.UnsignedTicks - steppedCell.Phi1Curr.UnsignedTicks + gate1AtT.SignedWrap);
-        return VerletCell72.Create(
-            steppedCell.Mu0.UnsignedTicks, p0Curr.UnsignedTicks, p0PastRec.UnsignedTicks,
-            steppedCell.Mu1.UnsignedTicks, p1Curr.UnsignedTicks, p1PastRec.UnsignedTicks);
+        Ring9 p0PastRec = p0Curr + (p0Curr - steppedCell.Phi0Curr) + gate0AtT;
+        Ring9 p1PastRec = p1Curr + (p1Curr - steppedCell.Phi1Curr) + gate1AtT;
+        return VerletCell72.Create(steppedCell.Mu0, p0Curr, p0PastRec, steppedCell.Mu1, p1Curr, p1PastRec);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static MultimodalReadout ReadCellSensors(VerletCell72 cell)
     {
-        int mu0 = cell.Mu0.UnsignedTicks;
-        int mu1 = cell.Mu1.UnsignedTicks;
+        int mu0 = cell.Mu0.Bits9;
+        int mu1 = cell.Mu1.Bits9;
         Ring9 dphi = cell.Phi1Curr - cell.Phi0Curr;
         var (c3, s3) = dphi.GrayButterflyRotator();
 
         int conc = mu0 * mu0 + mu1 * mu1;
         int wavelengthNm = 579 + FloorDivInt(CarrierSpecD3.CollapsePhi * c3, CarrierSpecD3.QSquare);
-        byte r = (byte)Math.Max(0, c3);
-        byte g = (byte)Math.Abs(s3);
-        byte b = (byte)Math.Max(0, -c3);
+        byte r = (byte)BranchlessMax(0, c3);
+        byte g = (byte)BranchlessAbs(s3);
+        byte b = (byte)BranchlessMax(0, -c3);
         int soundPressure = mu0 * mu1 * (CarrierSpecD3.QSquare - c3);
         int rxnCurrent = mu0 * mu1 * s3;
-        int ne = Math.Abs(cell.Gate0.SignedWrap) / CarrierSpecD3.DPhiDisc;
+        int ne = BranchlessAbs(cell.Gate0.SignedWrap) / CarrierSpecD3.DPhiDisc;
 
         return new MultimodalReadout(conc, wavelengthNm, r, g, b, soundPressure, rxnCurrent, ne);
     }
 
-    public static int Iv263MuAt(int dz, int dy, int dx)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Iv263MuAt(Ring9 dz, Ring9 dy, Ring9 dx)
     {
-        int r2 = dz * dz + dy * dy + dx * dx;
-        int inBall = r2 <= CarrierSpecD3.NSq * CarrierSpecD3.NSq ? 1 : 0;
-        return CarrierSpecD3.MuVac + CarrierSpecD3.NLinks * inBall;
+        int z = dz.SignedWrap, y = dy.SignedWrap, x = dx.SignedWrap;
+        int r2 = z * z + y * y + x * x;
+        int inBall = BranchlessIsNonNeg(CarrierSpecD3.NSq * CarrierSpecD3.NSq - r2);
+        return new Ring9(CarrierSpecD3.MuVac + CarrierSpecD3.NLinks * inBall);
     }
 
-    public static Ring9 Iv263PhiAt(int dz, int dy, int dx, int lane)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Iv263PhiAt(Ring9 dz, Ring9 dy, Ring9 dx, int lane)
     {
-        int r2 = dz * dz + dy * dy + dx * dx;
-        int inBall = r2 <= CarrierSpecD3.NSq * CarrierSpecD3.NSq ? 1 : 0;
-        int oct = (dz >= 0 ? 4 : 0) + (dy >= 0 ? 2 : 0) + (dx >= 0 ? 1 : 0);
-        int shiftOct = lane == 0 ? oct : (oct ^ CarrierSpecD3.D);
+        int z = dz.SignedWrap, y = dy.SignedWrap, x = dx.SignedWrap;
+        int r2 = z * z + y * y + x * x;
+        int inBall = BranchlessIsNonNeg(CarrierSpecD3.NSq * CarrierSpecD3.NSq - r2);
+        int oct = (BranchlessIsNonNeg(z) << 2) + (BranchlessIsNonNeg(y) << 1) + BranchlessIsNonNeg(x);
+        int shiftOct = BranchlessBlend(BranchlessIsZeroNat(lane), oct, oct ^ CarrierSpecD3.D);
         int bit = ((CarrierSpecD3.IvSeed % CarrierSpecD3.PhiPauli) >> shiftOct) & 1;
-        int rem13 = ((dx + CarrierSpecD3.NLinks) % CarrierSpecD3.NPhi + CarrierSpecD3.NPhi) % CarrierSpecD3.NPhi;
-        int bg = (rem13 * CarrierSpecD3.DPhiDisc) % CarrierSpecD3.NRing;
-        int phi = (bg + (CarrierSpecD3.D * CarrierSpecD3.DPhiDisc) * inBall * bit) % CarrierSpecD3.NRing;
-        return new Ring9(phi);
+        int rem13 = ((x + CarrierSpecD3.NLinks) % CarrierSpecD3.NPhi + CarrierSpecD3.NPhi) % CarrierSpecD3.NPhi;
+        int bg = (rem13 * CarrierSpecD3.DPhiDisc) & CarrierSpecD3.RingMask;
+        return new Ring9(bg + (CarrierSpecD3.D * CarrierSpecD3.DPhiDisc) * inBall * bit);
+    }
+
+    /// <summary>
+    /// Coordinate-Free O(1) Closed-Form Worldline Cell Evaluator at ANY 4D spacetime point `(dz, dy, dx, t)`!
+    /// Needs ZERO 3D grid allocation in RAM: evaluates the 12-neighbor holonomy gate at `(dz, dy, dx)` on `Ring9`
+    /// and jumps directly along the Verlet parabola to tick `t` in O(1)!
+    /// </summary>
+    public static VerletCell72 EvaluateClosedFormWorldlineCellAt(Ring9 dz, Ring9 dy, Ring9 dx, int t)
+    {
+        Span<Ring9> nbMu = stackalloc Ring9[12];
+        Span<Ring9> nbP0 = stackalloc Ring9[12];
+        Span<Ring9> nbP1 = stackalloc Ring9[12];
+
+        Ring9 muC = Iv263MuAt(dz, dy, dx);
+        Ring9 p0_0 = Iv263PhiAt(dz, dy, dx, 0);
+        Ring9 p1_0 = Iv263PhiAt(dz, dy, dx, 1);
+
+        for (int k = 0; k < 12; k++)
+        {
+            var (odz, ody, odx) = CarrierSpecD3.CuboctOffsets12[k];
+            Ring9 nz = dz - odz, ny = dy - ody, nx = dx - odx;
+            nbMu[k] = Iv263MuAt(nz, ny, nx);
+            nbP0[k] = Iv263PhiAt(nz, ny, nx, 0);
+            nbP1[k] = Iv263PhiAt(nz, ny, nx, 1);
+        }
+
+        Ring9 g0 = Compute12NeighborGate(muC, p0_0, nbMu, nbP0, 1).GatePhi;
+        Ring9 g1 = Compute12NeighborGate(muC, p1_0, nbMu, nbP1, 1).GatePhi;
+        Ring9 gLead = SelectLeadingGate(g0, g1);
+
+        var cell0 = VerletCell72.Create(muC, p0_0, p0_0, muC, p1_0, p1_0);
+        cell0.Gate0 = gLead;
+        cell0.Gate1 = gLead;
+        return cell0.EvaluateClosedFormAtTick(t);
     }
 }
 
