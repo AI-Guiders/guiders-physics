@@ -38,10 +38,15 @@ public readonly record struct Ring9
     public static Ring9 CollapsePhi  => new(139);
     public static Ring9 BezoutInv139 => new(183);
     public static Ring9 BezoutInv13  => new(197);
+    public static Ring9 QuartzSiO2Phi=> new(206); // (Z(SiO2)=30 * 41) mod 512 = 1230 mod 512 = 206 = 0o316
     public static Ring9 PhiPauli     => new(256);
     public static Ring9 IvSeed       => new(263);
     public static Ring9 BezoutInv97  => new(417);
     public static Ring9 MinusOne     => new(511);
+    public static Ring9 ZSilicon14   => new(14);  // Z(Si) = 14 = N_phi + 1
+    public static Ring9 ZOxygen2_16  => new(16);  // Z(O2) = 16 = 2 * |Delta(3)|
+    public static Ring9 ZQuartz30    => new(30);  // Z(SiO2) = 14 + 16 = 30 = |sq(3)| * d_out(E)
+    public static Ring9 ZAlphaQuartz90 => new(90);// Z((SiO2)_3) = 3 * 30 = 90 = M_hat - d_out(V)
 
     public static readonly (Ring9 Dz, Ring9 Dy, Ring9 Dx)[] CuboctOffsets12 =
     [
@@ -216,6 +221,18 @@ public struct VerletCell72
         c.Phi1Curr = p1Curr;
         c.Phi1Past = p1Past;
         return c;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static VerletCell72 CreatePhysicalAlphaQuartzCell(Ring9 crystalOscillatorA, Ring9 crystalOscillatorB)
+    {
+        Ring9 phiSi = Ring9.QuartzSiO2Phi + crystalOscillatorA;
+        Ring9 phiO2 = Ring9.QuartzSiO2Phi + crystalOscillatorB;
+        Ring9 dphiBeat = phiO2 - phiSi;
+        var cell = Create(Ring9.ZSilicon14, phiSi, phiSi - dphiBeat, Ring9.ZOxygen2_16, phiO2, phiO2 - dphiBeat);
+        cell.Gate0 = CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(dphiBeat);
+        cell.Gate1 = cell.Gate0;
+        return cell;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

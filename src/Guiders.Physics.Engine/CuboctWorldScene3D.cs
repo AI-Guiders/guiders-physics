@@ -47,11 +47,17 @@ public sealed class CuboctWorldScene3D
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void SyncWithHostQuartzCrystal()
+    public VerletCell72 SyncWithHostDualQuartzCrystals()
     {
-        ushort crystalTicks9 = (ushort)(Stopwatch.GetTimestamp() & 0x1FF);
-        SyncWithPhysicalAtom(new Ring9(crystalTicks9));
+        ushort qpc9 = (ushort)(Stopwatch.GetTimestamp() & 0x1FF);
+        ushort rtc9 = (ushort)(System.Environment.TickCount64 & 0x1FF);
+        var quartzCell = VerletCell72.CreatePhysicalAlphaQuartzCell(new Ring9(qpc9), new Ring9(rtc9));
+        SyncWithPhysicalAtom(quartzCell.Phi0Curr);
+        return quartzCell;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SyncWithHostQuartzCrystal() => SyncWithHostDualQuartzCrystals();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void AdvanceClock()

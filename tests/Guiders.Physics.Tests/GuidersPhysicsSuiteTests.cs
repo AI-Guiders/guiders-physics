@@ -124,5 +124,12 @@ public class GuidersPhysicsSuiteTests
 
         world.ClockMode = WorldClockMode.AtomSynced;
         world.AdvanceClock();
+
+        // Verify Physical Alpha-Quartz SiO2 Crystal Cell (Z(Si)=14, Z(O2)=16, Z(SiO2)=30, phi_SiO2=206=0o316):
+        Assert.Equal(new Ring9(30), Ring9.ZSilicon14 + Ring9.ZOxygen2_16);
+        Assert.Equal(new Ring9(206), Ring9.ZQuartz30 * Ring9.DPhiDisc);
+        var liveQuartz = world.SyncWithHostDualQuartzCrystals();
+        Assert.Equal(Ring9.ZSilicon14, liveQuartz.Mu0);
+        Assert.Equal(Ring9.ZOxygen2_16, liveQuartz.Mu1);
     }
 }
