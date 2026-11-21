@@ -564,36 +564,124 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Ring9 Compute12NeighborHolonomyGateAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane)
+    public static Ring9 Isqrt4096(ushort q)
     {
-        Ring9 muC = Iv263MuAt(dz, dy, dx);
-        Ring9 phiC = Iv263PhiAt(dz, dy, dx, lane);
+        ushort r = 0;
+        ushort c6 = (ushort)(r | 64); ushort b6 = (ushort)(1 / (((c6 * c6) / (q + 1)) + 1)); r = (ushort)(r | (b6 * 64));
+        ushort c5 = (ushort)(r | 32); ushort b5 = (ushort)(1 / (((c5 * c5) / (q + 1)) + 1)); r = (ushort)(r | (b5 * 32));
+        ushort c4 = (ushort)(r | 16); ushort b4 = (ushort)(1 / (((c4 * c4) / (q + 1)) + 1)); r = (ushort)(r | (b4 * 16));
+        ushort c3 = (ushort)(r |  8); ushort b3 = (ushort)(1 / (((c3 * c3) / (q + 1)) + 1)); r = (ushort)(r | (b3 *  8));
+        ushort c2 = (ushort)(r |  4); ushort b2 = (ushort)(1 / (((c2 * c2) / (q + 1)) + 1)); r = (ushort)(r | (b2 *  4));
+        ushort c1 = (ushort)(r |  2); ushort b1 = (ushort)(1 / (((c1 * c1) / (q + 1)) + 1)); r = (ushort)(r | (b1 *  2));
+        ushort c0 = (ushort)(r |  1); ushort b0 = (ushort)(1 / (((c0 * c0) / (q + 1)) + 1)); r = (ushort)(r | (b0 *  1));
+        return new Ring9(r);
+    }
 
-        Ring9 m0  = Iv263MuAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac);
-        Ring9 m1  = Iv263MuAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac);
-        Ring9 m2  = Iv263MuAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac);
-        Ring9 m3  = Iv263MuAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac);
-        Ring9 m4  = Iv263MuAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac);
-        Ring9 m5  = Iv263MuAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac);
-        Ring9 m6  = Iv263MuAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac);
-        Ring9 m7  = Iv263MuAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac);
-        Ring9 m8  = Iv263MuAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx);
-        Ring9 m9  = Iv263MuAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx);
-        Ring9 m10 = Iv263MuAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx);
-        Ring9 m11 = Iv263MuAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Bus36 Px, Bus36 Py, Bus36 Pr) PythagoreanRotator36(Ring9 phi)
+    {
+        Ring9 c = phi.ProjC;
+        Ring9 s = phi.ProjS;
+        Ring9 absC = (Ring9.QSquare - phi.AbsWrap).AbsWrap;
+        Ring9 absS = (Ring9.QSquare - (phi - Ring9.QSquare).AbsWrap).AbsWrap;
 
-        Ring9 d0  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
-        Ring9 d1  = Iv263PhiAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac, lane) - phiC;
-        Ring9 d2  = Iv263PhiAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac, lane) - phiC;
-        Ring9 d3  = Iv263PhiAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac, lane) - phiC;
-        Ring9 d4  = Iv263PhiAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac, lane) - phiC;
-        Ring9 d5  = Iv263PhiAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac, lane) - phiC;
-        Ring9 d6  = Iv263PhiAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac, lane) - phiC;
-        Ring9 d7  = Iv263PhiAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac, lane) - phiC;
-        Ring9 d8  = Iv263PhiAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx,                lane) - phiC;
-        Ring9 d9  = Iv263PhiAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx,                lane) - phiC;
-        Ring9 d10 = Iv263PhiAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx,                lane) - phiC;
-        Ring9 d11 = Iv263PhiAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx,                lane) - phiC;
+        ushort sMag = absS.Bits9;
+        ushort cMag = absC.Bits9;
+        ushort cNonZero = (ushort)(1 - (1 / (cMag + 1)));
+        ushort cNeg = c.BitQ1.Bits9;
+        ushort sNeg = s.BitQ1.Bits9;
+
+        uint q2 = 128u * 128u;
+        uint s2 = (uint)sMag * sMag;
+        uint pxMag = cNonZero * (q2 - s2);
+        uint pyMag = 256u * sMag;
+        uint prVal = q2 + s2;
+
+        Bus36 pxPos = new(new Ring9((ushort)pxMag), new Ring9((ushort)(pxMag >> 9)), Ring9.Zero, Ring9.Zero);
+        Bus36 px = (pxPos * new Ring9((ushort)(1 - cNeg))) + ((-pxPos) * new Ring9(cNeg));
+
+        Bus36 pyPos = new(new Ring9((ushort)pyMag), new Ring9((ushort)(pyMag >> 9)), Ring9.Zero, Ring9.Zero);
+        Bus36 py = (pyPos * new Ring9((ushort)(1 - sNeg))) + ((-pyPos) * new Ring9(sNeg));
+
+        Bus36 pr = new(new Ring9((ushort)prVal), new Ring9((ushort)(prVal >> 9)), Ring9.Zero, Ring9.Zero);
+        return (px, py, pr);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 PauliExclusionGate9(Ring9 mu0, Ring9 phi0, Ring9 mu1, Ring9 phi1, Ring9 enabledFlag)
+    {
+        ushort d0 = (ushort)(1 - (1 / ((mu0.Bits9 / 46) + 1)));
+        ushort d1 = (ushort)(1 - (1 / ((mu1.Bits9 / 46) + 1)));
+        ushort par = (ushort)(1 / (((phi1 - phi0).AbsWrap.Bits9 / 41) + 1));
+        ushort fire = (ushort)(enabledFlag.Bits9 * d0 * d1 * par);
+        return new Ring9((ushort)(256 * fire));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
+    {
+        Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
+        Bus36 xBus = Bus36.FromUnsignedRing9(phiX);
+        Bus36 bias255 = Bus36.FromUnsignedRing9(new Ring9(255));
+        Bus36 shifted = (yBus - xBus) + bias255;
+        return (phiY - phiX, shifted.L1);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 PlaquetteWinding9(Ring9 p00, Ring9 p01, Ring9 p11, Ring9 p10)
+    {
+        Ring9 k01 = EdgeDifferenceWithBranchCarry(p01, p00).BranchCarry9;
+        Ring9 k12 = EdgeDifferenceWithBranchCarry(p11, p01).BranchCarry9;
+        Ring9 k32 = EdgeDifferenceWithBranchCarry(p11, p10).BranchCarry9;
+        Ring9 k03 = EdgeDifferenceWithBranchCarry(p10, p00).BranchCarry9;
+        return -((k01 + k12) - (k32 + k03));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeTwoLaneCellGate(
+        Ring9 mu0, Ring9 phi0, Ring9 mu1, Ring9 phi1,
+        Ring9 m0_0,  Ring9 p0_0,  Ring9 m0_1,  Ring9 p0_1,  Ring9 m0_2,  Ring9 p0_2,  Ring9 m0_3,  Ring9 p0_3,
+        Ring9 m0_4,  Ring9 p0_4,  Ring9 m0_5,  Ring9 p0_5,  Ring9 m0_6,  Ring9 p0_6,  Ring9 m0_7,  Ring9 p0_7,
+        Ring9 m0_8,  Ring9 p0_8,  Ring9 m0_9,  Ring9 p0_9,  Ring9 m0_10, Ring9 p0_10, Ring9 m0_11, Ring9 p0_11,
+        Ring9 m1_0,  Ring9 p1_0,  Ring9 m1_1,  Ring9 p1_1,  Ring9 m1_2,  Ring9 p1_2,  Ring9 m1_3,  Ring9 p1_3,
+        Ring9 m1_4,  Ring9 p1_4,  Ring9 m1_5,  Ring9 p1_5,  Ring9 m1_6,  Ring9 p1_6,  Ring9 m1_7,  Ring9 p1_7,
+        Ring9 m1_8,  Ring9 p1_8,  Ring9 m1_9,  Ring9 p1_9,  Ring9 m1_10, Ring9 p1_10, Ring9 m1_11, Ring9 p1_11,
+        Ring9 pauliEnabledFlag)
+    {
+        Ring9 g0 = Compute12NeighborGateFromCells(
+            mu0, phi0,
+            m0_0, p0_0, m0_1, p0_1, m0_2, p0_2, m0_3, p0_3,
+            m0_4, p0_4, m0_5, p0_5, m0_6, p0_6, m0_7, p0_7,
+            m0_8, p0_8, m0_9, p0_9, m0_10, p0_10, m0_11, p0_11);
+        Ring9 g1 = Compute12NeighborGateFromCells(
+            mu1, phi1,
+            m1_0, p1_0, m1_1, p1_1, m1_2, p1_2, m1_3, p1_3,
+            m1_4, p1_4, m1_5, p1_5, m1_6, p1_6, m1_7, p1_7,
+            m1_8, p1_8, m1_9, p1_9, m1_10, p1_10, m1_11, p1_11);
+        Ring9 lead = SelectLeadingGate(g0, g1);
+        Ring9 pauli = PauliExclusionGate9(mu0, phi0, mu1, phi1, pauliEnabledFlag);
+        return lead + pauli;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Compute12NeighborGateFromCells(
+        Ring9 muC, Ring9 phiC,
+        Ring9 m0,  Ring9 p0,  Ring9 m1,  Ring9 p1,  Ring9 m2,  Ring9 p2,  Ring9 m3,  Ring9 p3,
+        Ring9 m4,  Ring9 p4,  Ring9 m5,  Ring9 p5,  Ring9 m6,  Ring9 p6,  Ring9 m7,  Ring9 p7,
+        Ring9 m8,  Ring9 p8,  Ring9 m9,  Ring9 p9,  Ring9 m10, Ring9 p10, Ring9 m11, Ring9 p11)
+    {
+        Ring9 d0  = p0  - phiC;
+        Ring9 d1  = p1  - phiC;
+        Ring9 d2  = p2  - phiC;
+        Ring9 d3  = p3  - phiC;
+        Ring9 d4  = p4  - phiC;
+        Ring9 d5  = p5  - phiC;
+        Ring9 d6  = p6  - phiC;
+        Ring9 d7  = p7  - phiC;
+        Ring9 d8  = p8  - phiC;
+        Ring9 d9  = p9  - phiC;
+        Ring9 d10 = p10 - phiC;
+        Ring9 d11 = p11 - phiC;
 
         Bus36 sumMu = Bus36.FromUnsignedRing9(m0)  + Bus36.FromUnsignedRing9(m1)  + Bus36.FromUnsignedRing9(m2)  +
                       Bus36.FromUnsignedRing9(m3)  + Bus36.FromUnsignedRing9(m4)  + Bus36.FromUnsignedRing9(m5)  +
@@ -628,6 +716,25 @@ public static unsafe class CuboctahedronAutomatonKernel
         Bus36 num = zDrive * Ring9.KP;
         Ring9 rawGate = Bus36.FloorDivideToRing9(num, safeDen);
         return ApplyHeisenbergDeadband(rawGate);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 Compute12NeighborHolonomyGateAt(Ring9 dz, Ring9 dy, Ring9 dx, Ring9 lane)
+    {
+        return Compute12NeighborGateFromCells(
+            Iv263MuAt(dz, dy, dx), Iv263PhiAt(dz, dy, dx, lane),
+            Iv263MuAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac), Iv263PhiAt(dz,                dy - Ring9.MuVac, dx - Ring9.MuVac, lane),
+            Iv263MuAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac), Iv263PhiAt(dz,                dy - Ring9.MuVac, dx + Ring9.MuVac, lane),
+            Iv263MuAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac), Iv263PhiAt(dz,                dy + Ring9.MuVac, dx - Ring9.MuVac, lane),
+            Iv263MuAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac), Iv263PhiAt(dz,                dy + Ring9.MuVac, dx + Ring9.MuVac, lane),
+            Iv263MuAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac), Iv263PhiAt(dz - Ring9.MuVac, dy,                dx - Ring9.MuVac, lane),
+            Iv263MuAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac), Iv263PhiAt(dz - Ring9.MuVac, dy,                dx + Ring9.MuVac, lane),
+            Iv263MuAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac), Iv263PhiAt(dz + Ring9.MuVac, dy,                dx - Ring9.MuVac, lane),
+            Iv263MuAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac), Iv263PhiAt(dz + Ring9.MuVac, dy,                dx + Ring9.MuVac, lane),
+            Iv263MuAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx),                Iv263PhiAt(dz - Ring9.MuVac, dy - Ring9.MuVac, dx,                lane),
+            Iv263MuAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx),                Iv263PhiAt(dz - Ring9.MuVac, dy + Ring9.MuVac, dx,                lane),
+            Iv263MuAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx),                Iv263PhiAt(dz + Ring9.MuVac, dy - Ring9.MuVac, dx,                lane),
+            Iv263MuAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx),                Iv263PhiAt(dz + Ring9.MuVac, dy + Ring9.MuVac, dx,                lane));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
