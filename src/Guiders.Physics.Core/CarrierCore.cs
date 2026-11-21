@@ -608,6 +608,83 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 EnforcePlanckCellFloor(Ring9 mu)
+    {
+        ushort isZero = (ushort)(1 / (mu.Bits9 + 1));
+        return new Ring9((ushort)(mu.Bits9 + isZero));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 ComputeSingleDirectedEdgeFlux36(Ring9 muX, Ring9 phiX, Ring9 muY, Ring9 phiY)
+    {
+        Ring9 dphiXY = phiX - phiY;
+        Bus36 sVal = NeighborTerm(muY, dphiXY.ProjS) * muX;
+        Bus36 denom1536 = new(Ring9.Zero, Ring9.D, Ring9.Zero, Ring9.Zero); // 3 * 512 = 1536 = 12 * 128!
+
+        ulong uNum = (ulong)sVal.L0.Bits9 | ((ulong)sVal.L1.Bits9 << 9) | ((ulong)sVal.L2.Bits9 << 18) | ((ulong)sVal.L3.Bits9 << 27);
+        ulong numNeg = (uNum >> 35) & 1UL;
+        ulong magNum = ((1UL - numNeg) * uNum + numNeg * ((0x10_0000_0000UL - uNum) & 0xF_FFFF_FFFFUL)) & 0xF_FFFF_FFFFUL;
+        ulong qMag = magNum / 1536UL;
+        ulong rMag = magNum - qMag * 1536UL;
+        ulong hasRem = 1UL - (1UL / (rMag + 1UL));
+
+        ushort qX = (ushort)(muX.Bits9 * muX.Bits9);
+        ushort qY = (ushort)(muY.Bits9 * muY.Bits9);
+        ushort capPosA = (ushort)((qX - 1) / 6);
+        ushort capPosB = (ushort)((4096 - qY) / 6);
+        ushort isPosALess = (ushort)(1 / ((capPosA / (capPosB + 1)) + 1));
+        ushort capPos = (ushort)(isPosALess * capPosA + (1 - isPosALess) * capPosB);
+
+        ushort capNegA = (ushort)((qY - 1) / 6);
+        ushort capNegB = (ushort)((4096 - qX) / 6);
+        ushort isNegALess = (ushort)(1 / ((capNegA / (capNegB + 1)) + 1));
+        ushort capNeg = (ushort)(isNegALess * capNegA + (1 - isNegALess) * capNegB);
+
+        ushort rawPos = (ushort)((1UL - numNeg) * qMag);
+        ushort rawNegMag = (ushort)(numNeg * (qMag + hasRem));
+
+        ushort clampPos = (ushort)((1 / ((rawPos / (capPos + 1)) + 1)) * rawPos + (1 - (1 / ((rawPos / (capPos + 1)) + 1))) * capPos);
+        ushort clampNeg = (ushort)((1 / ((rawNegMag / (capNeg + 1)) + 1)) * rawNegMag + (1 - (1 / ((rawNegMag / (capNeg + 1)) + 1))) * capNeg);
+
+        Bus36 posBus = Bus36.FromUnsignedRing9(new Ring9(clampPos));
+        Bus36 negBus = -Bus36.FromUnsignedRing9(new Ring9(clampNeg));
+        return posBus + negBus;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 MuNext, Bus36 DivJ) Compute12EdgeMassFluxStepAtCell(
+        Ring9 muC, Ring9 phiC,
+        Ring9 mPos0, Ring9 pPos0, Ring9 mNeg0, Ring9 pNeg0,
+        Ring9 mPos1, Ring9 pPos1, Ring9 mNeg1, Ring9 pNeg1,
+        Ring9 mPos2, Ring9 pPos2, Ring9 mNeg2, Ring9 pNeg2,
+        Ring9 mPos3, Ring9 pPos3, Ring9 mNeg3, Ring9 pNeg3,
+        Ring9 mPos4, Ring9 pPos4, Ring9 mNeg4, Ring9 pNeg4,
+        Ring9 mPos5, Ring9 pPos5, Ring9 mNeg5, Ring9 pNeg5)
+    {
+        Bus36 jOut0 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos0, pPos0);
+        Bus36 jIn0  = ComputeSingleDirectedEdgeFlux36(mNeg0, pNeg0, muC, phiC);
+        Bus36 jOut1 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos1, pPos1);
+        Bus36 jIn1  = ComputeSingleDirectedEdgeFlux36(mNeg1, pNeg1, muC, phiC);
+        Bus36 jOut2 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos2, pPos2);
+        Bus36 jIn2  = ComputeSingleDirectedEdgeFlux36(mNeg2, pNeg2, muC, phiC);
+        Bus36 jOut3 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos3, pPos3);
+        Bus36 jIn3  = ComputeSingleDirectedEdgeFlux36(mNeg3, pNeg3, muC, phiC);
+        Bus36 jOut4 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos4, pPos4);
+        Bus36 jIn4  = ComputeSingleDirectedEdgeFlux36(mNeg4, pNeg4, muC, phiC);
+        Bus36 jOut5 = ComputeSingleDirectedEdgeFlux36(muC, phiC, mPos5, pPos5);
+        Bus36 jIn5  = ComputeSingleDirectedEdgeFlux36(mNeg5, pNeg5, muC, phiC);
+
+        Bus36 divJ = (jOut0 - jIn0) + (jOut1 - jIn1) + (jOut2 - jIn2) +
+                     (jOut3 - jIn3) + (jOut4 - jIn4) + (jOut5 - jIn5);
+
+        ushort qCurr = (ushort)(muC.Bits9 * muC.Bits9);
+        Bus36 qCurrBus = new(new Ring9(qCurr), new Ring9((ushort)(qCurr >> 9)), Ring9.Zero, Ring9.Zero);
+        Bus36 qNextBus = qCurrBus - divJ;
+        ushort qNext16 = (ushort)(qNextBus.L0.Bits9 | (qNextBus.L1.Bits9 << 9));
+        return (Isqrt4096(qNext16), divJ);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Ring9 PauliExclusionGate9(Ring9 mu0, Ring9 phi0, Ring9 mu1, Ring9 phi1, Ring9 enabledFlag)
     {
         ushort d0 = (ushort)(1 - (1 / ((mu0.Bits9 / 46) + 1)));

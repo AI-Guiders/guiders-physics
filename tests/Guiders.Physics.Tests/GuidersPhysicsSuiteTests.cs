@@ -346,6 +346,134 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_8_EdgeMassFluxTransport_MatchesPythonPolarEdgeFluxStepQCoreBitForBit()
+    {
+        const ushort N = 16;
+        Ring9 center = new(8);
+        Ring9[,,] mu = new Ring9[N, N, N];
+        Ring9[,,] p0 = new Ring9[N, N, N];
+        Ring9[,,] p1 = new Ring9[N, N, N];
+
+        for (ushort iz = 0; iz < N; iz++)
+            for (ushort iy = 0; iy < N; iy++)
+                for (ushort ix = 0; ix < N; ix++)
+                {
+                    Ring9 dz = new Ring9(iz) - center;
+                    Ring9 dy = new Ring9(iy) - center;
+                    Ring9 dx = new Ring9(ix) - center;
+                    mu[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263MuAt(dz, dy, dx);
+                    p0[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.Zero);
+                    p1[iz, iy, ix] = CuboctahedronAutomatonKernel.Iv263PhiAt(dz, dy, dx, Ring9.MuVac);
+                }
+
+        Ring9 M(int z, int y, int x) => mu[(z + N) % N, (y + N) % N, (x + N) % N];
+        Ring9 P0(int z, int y, int x) => p0[(z + N) % N, (y + N) % N, (x + N) % N];
+        Ring9 P1(int z, int y, int x) => p1[(z + N) % N, (y + N) % N, (x + N) % N];
+
+        Ring9[,,] st1_0 = new Ring9[N, N, N];
+        for (int z = 0; z < N; z++)
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    Ring9 gate = CuboctahedronAutomatonKernel.ComputeTwoLaneCellGate(
+                        M(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x),
+                        M(z, y - 1, x - 1), P0(z, y - 1, x - 1), M(z, y - 1, x + 1), P0(z, y - 1, x + 1),
+                        M(z, y + 1, x - 1), P0(z, y + 1, x - 1), M(z, y + 1, x + 1), P0(z, y + 1, x + 1),
+                        M(z - 1, y, x - 1), P0(z - 1, y, x - 1), M(z - 1, y, x + 1), P0(z - 1, y, x + 1),
+                        M(z + 1, y, x - 1), P0(z + 1, y, x - 1), M(z + 1, y, x + 1), P0(z + 1, y, x + 1),
+                        M(z - 1, y - 1, x), P0(z - 1, y - 1, x), M(z - 1, y + 1, x), P0(z - 1, y + 1, x),
+                        M(z + 1, y - 1, x), P0(z + 1, y - 1, x), M(z + 1, y + 1, x), P0(z + 1, y + 1, x),
+                        M(z, y - 1, x - 1), P1(z, y - 1, x - 1), M(z, y - 1, x + 1), P1(z, y - 1, x + 1),
+                        M(z, y + 1, x - 1), P1(z, y + 1, x - 1), M(z, y + 1, x + 1), P1(z, y + 1, x + 1),
+                        M(z - 1, y, x - 1), P1(z - 1, y, x - 1), M(z - 1, y, x + 1), P1(z - 1, y, x + 1),
+                        M(z + 1, y, x - 1), P1(z + 1, y, x - 1), M(z + 1, y, x + 1), P1(z + 1, y, x + 1),
+                        M(z - 1, y - 1, x), P1(z - 1, y - 1, x), M(z - 1, y + 1, x), P1(z - 1, y + 1, x),
+                        M(z + 1, y - 1, x), P1(z + 1, y - 1, x), M(z + 1, y + 1, x), P1(z + 1, y + 1, x),
+                        Ring9.MuVac);
+                    var cell = VerletCell72.Create(M(z, y, x), P0(z, y, x), P0(z, y, x), M(z, y, x), P1(z, y, x), P1(z, y, x));
+                    st1_0[z, y, x] = CuboctahedronAutomatonKernel.StepCellForward(cell, gate, gate).Phi0Curr;
+                }
+
+        Ring9 P1At(int z, int y, int x) => st1_0[(z + N) % N, (y + N) % N, (x + N) % N];
+
+        // In Python `torch.roll(t, shifts=(dz, dy, dx))` shifts by `(z - dz, y - dy, x - dx)` for `_FCC_OFFSETS[:6]`:
+        // (-1,-1,0), (-1,1,0), (-1,0,-1), (-1,0,1), (0,-1,-1), (0,-1,1)
+        Bus36 totalDivJ = Bus36.Zero;
+        int nonZeroDivJ = 0;
+        Ring9 sampleMu882 = Ring9.Zero;
+        Bus36 sampleDivJ882 = Bus36.Zero;
+
+        for (int z = 0; z < N; z++)
+            for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    var (muNext, divJ) = CuboctahedronAutomatonKernel.Compute12EdgeMassFluxStepAtCell(
+                        M(z, y, x), P1At(z, y, x),
+                        M(z + 1, y + 1, x), P1At(z + 1, y + 1, x), M(z - 1, y - 1, x), P1At(z - 1, y - 1, x),
+                        M(z + 1, y - 1, x), P1At(z + 1, y - 1, x), M(z - 1, y + 1, x), P1At(z - 1, y + 1, x),
+                        M(z + 1, y, x + 1), P1At(z + 1, y, x + 1), M(z - 1, y, x - 1), P1At(z - 1, y, x - 1),
+                        M(z + 1, y, x - 1), P1At(z + 1, y, x - 1), M(z - 1, y, x + 1), P1At(z - 1, y, x + 1),
+                        M(z, y + 1, x + 1), P1At(z, y + 1, x + 1), M(z, y - 1, x - 1), P1At(z, y - 1, x - 1),
+                        M(z, y + 1, x - 1), P1At(z, y + 1, x - 1), M(z, y - 1, x + 1), P1At(z, y - 1, x + 1));
+
+                    totalDivJ = totalDivJ + divJ;
+                    if (divJ != Bus36.Zero) nonZeroDivJ++;
+                    if (z == 8 && y == 8 && x == 2)
+                    {
+                        sampleMu882 = muNext;
+                        sampleDivJ882 = divJ;
+                    }
+                }
+
+        // Exact match with Python polar_edge_flux_step_q_core:
+        // div_j_sum == 0, div_j_nonzero == 1067, div_j[8,8,2] == 15, mu_next[8,8,2] == 12!
+        Assert.Equal(Bus36.Zero, totalDivJ);
+        Assert.Equal(1067, nonZeroDivJ);
+        Assert.Equal(Bus36.FromUnsignedRing9(new Ring9(15)), sampleDivJ882);
+        Assert.Equal(Ring9.NLinks, sampleMu882);
+    }
+
+    [Fact]
+    public void Core_9_SymmetriesAndAxioms_A5VacuumFloor_A14U1Invariance_Spinor360And720_NitrogenaseJanus()
+    {
+        // 1) A5 Planck cell vacuum floor: 0 -> 1 (MuVac), non-zero -> unchanged
+        Assert.Equal(Ring9.MuVac, CuboctahedronAutomatonKernel.EnforcePlanckCellFloor(Ring9.Zero));
+        Assert.Equal(Ring9.NPhi,  CuboctahedronAutomatonKernel.EnforcePlanckCellFloor(Ring9.NPhi));
+
+        // 2) A14 U(1) global phase-shift invariance across all 512 global clock shifts c:
+        for (ushort c = 0; c < 512; c += 13)
+        {
+            Ring9 shift = new(c);
+            Ring9 pX = new Ring9(41) + shift;
+            Ring9 pY = new Ring9(180) + shift;
+            Assert.Equal((new Ring9(180) - new Ring9(41)).ProjC, (pY - pX).ProjC);
+            Assert.Equal((new Ring9(180) - new Ring9(41)).ProjS, (pY - pX).ProjS);
+            Assert.Equal(
+                CuboctahedronAutomatonKernel.ComputeSingleDirectedEdgeFlux36(Ring9.NPhi, new(41), Ring9.NPhi, new(180)),
+                CuboctahedronAutomatonKernel.ComputeSingleDirectedEdgeFlux36(Ring9.NPhi, pX, Ring9.NPhi, pY));
+        }
+
+        // 3) Spinor 360-degree Pauli flip (+256 negates ProjC and ProjS) and 720-degree identity (+256 + 256 == id):
+        for (ushort phi = 0; phi < 512; phi++)
+        {
+            Ring9 r = new(phi);
+            Ring9 r360 = r.PauliPartner;
+            Ring9 r720 = r360.PauliPartner;
+            Assert.Equal(-r.ProjC, r360.ProjC);
+            Assert.Equal(-r.ProjS, r360.ProjS);
+            Assert.Equal(r, r720);
+        }
+
+        // 4) Nitrogenase Fe7MoS9C Lowe-Thorneley E1..E8 Janus saddle transition at E4 (4 * 41 = 164 > 128) and E7 (7 * 41 = 287 -> C_3 = -97):
+        Ring9 e3Phase = Ring9.D * Ring9.DPhiDisc;         // 3 * 41 = 123 (< 128) -> C_3 = +5
+        Ring9 e4Phase = Ring9.DInSquare * Ring9.DPhiDisc; // 4 * 41 = 164 (> 128) -> C_3 = -36
+        Ring9 e7Phase = Ring9.DOutVertex * Ring9.DPhiDisc;// 7 * 41 = 287         -> C_3 = -97 = -MHat!
+        Assert.Equal(Ring9.DOutEdge, e3Phase.ProjC);
+        Assert.Equal(-new Ring9(36), e4Phase.ProjC);
+        Assert.Equal(-Ring9.MHat,    e7Phase.ProjC);
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];
