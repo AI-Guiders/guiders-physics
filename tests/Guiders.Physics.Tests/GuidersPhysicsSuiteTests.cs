@@ -95,7 +95,7 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.QSquare, sensor.ColorR + sensor.ColorG + sensor.ColorB);
         Assert.Equal(new Ring9(26), sensor.OlfactoryShellZ);
 
-        var (earL, earR) = world.SampleBinauralAudioListener((new(0), new(1), new(2)), (new(0), new(3), new(2)));
+        var (earL, earR) = world.SampleBinauralAudioListener((new(0), new(0), new(2)), (new(511), new(2), new(2)));
         Assert.NotEqual(Ring9.Zero, earL + earR);
 
         world.JumpToTick(Ring9.Zero);
