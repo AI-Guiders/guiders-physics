@@ -263,16 +263,31 @@ public readonly record struct MultimodalReadout9(
     Ring9 OlfactoryShellZ,
     Ring9 ChiralOdorProjectionS);
 
-public static class CuboctahedronAutomatonKernel
+public static unsafe class CuboctahedronAutomatonKernel
 {
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static Ring9 SampleSiliconThermalTrng9()
+    private static readonly delegate* unmanaged<ushort> _rdseed9Ptr = InitHardwareRdseed9();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr VirtualAlloc(IntPtr lpAddress, nuint dwSize, uint flAllocationType, uint flProtect);
+
+    private static delegate* unmanaged<ushort> InitHardwareRdseed9()
     {
-        Span<byte> buf = stackalloc byte[2];
-        RandomNumberGenerator.Fill(buf);
-        ushort raw16 = (ushort)(buf[0] | (buf[1] << 8));
-        return new Ring9(raw16);
+        // Direct x86_64 hardware silicon thermal TRNG instruction:
+        //   48 0F C7 F8    rdseed rax
+        //   73 FA          jnc -6 (wait for fresh silicon thermal latch)
+        //   25 FF 01 00 00 and eax, 0x1FF (native 9-bit Ring9 mask!)
+        //   C3             ret
+        IntPtr mem = VirtualAlloc(IntPtr.Zero, 64, 0x3000, 0x40);
+        byte* p = (byte*)mem;
+        p[0] = 0x48; p[1] = 0x0F; p[2] = 0xC7; p[3] = 0xF8;
+        p[4] = 0x73; p[5] = 0xFA;
+        p[6] = 0x25; p[7] = 0xFF; p[8] = 0x01; p[9] = 0x00; p[10] = 0x00;
+        p[11] = 0xC3;
+        return (delegate* unmanaged<ushort>)mem;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 SampleSiliconThermalTrng9() => new(_rdseed9Ptr());
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 ThermalPhaseNow, Ring9 ThermalDeltaPhiVerlet) SampleSiliconThermalTwoTickPair9()
