@@ -721,6 +721,13 @@ public class GuidersPhysicsSuiteTests
             Assert.Equal(Ring9.PhiPauli, proto.PauliEjectPhase);
             Assert.True(KitchenBenchDigitalTwin.VerifyUart16ByteFrameCrc(proto.Uart0x02StartFrame16B));
         }
+
+        // Verify 3D Gorkov-Bjerknes trap Hessian trace (2 * 12 = 24 = 8 + 8 + 8)
+        // and 90 mm Petri dish (R = 45 mm) Bjerknes quarter-wave rings (45 / 7 = 6 = NSq, 45 % 7 = 3 = D):
+        Assert.Equal(Ring9.C0OverCSq * Ring9.NLinks, CuboctahedronAutomatonKernel.ComputeGorkovTrapHessianTrace9(Ring9.NLinks));
+        var bjerknes = CuboctahedronAutomatonKernel.ComputePetriDishBjerknesRings9();
+        Assert.Equal(Ring9.NSq, bjerknes.ConcentricRingsCount6);
+        Assert.Equal(Ring9.D, bjerknes.WallClearanceMm3);
     }
 
     [Fact]

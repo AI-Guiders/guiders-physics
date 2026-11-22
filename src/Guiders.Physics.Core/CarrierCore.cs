@@ -969,6 +969,15 @@ public static unsafe class CuboctahedronAutomatonKernel
         new((ushort)((domeImpedance.L2.Bits9 / 2) - 1));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeGorkovTrapHessianTrace9(Ring9 activeCoilsCount) =>
+        Ring9.C0OverCSq * activeCoilsCount;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 ConcentricRingsCount6, Ring9 WallClearanceMm3) ComputePetriDishBjerknesRings9() =>
+        (new Ring9((ushort)((Ring9.DOutEdge.Bits9 * Ring9.ModBits.Bits9) / Ring9.DOutVertex.Bits9)),
+         new Ring9((ushort)((Ring9.DOutEdge.Bits9 * Ring9.ModBits.Bits9) % Ring9.DOutVertex.Bits9)));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
