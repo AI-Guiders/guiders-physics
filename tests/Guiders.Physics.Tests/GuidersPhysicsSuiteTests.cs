@@ -861,26 +861,26 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(147), full147.ThreeShellBall147SectionCount);
         Assert.Equal(Ring9.D, full147.ThreeShellBall147SectionCount - full147.PalmiticLipid144);
 
-        // Verify 180-Section Consecutive Power Closure & 197-Section Gold-197 Bezout Multiscale Self-Closure
-        // (Numbers 1..180 consecutively + 182..512..8192: Kok S4 flash 164 = 4*41 -> C_3(164) = -36,
+        // Verify 263-Section Consecutive Catalan Initial Seed IV(3) = 263 = 407_8 Multiscale Self-Closure
+        // (Every integer 1..263 consecutively mapped + 278..512..8192: Kok S4 flash 164 = 4*41 -> C_3(164) = -36,
         // core square 169 = 13^2 = 128 + 41, 180 = 12*15 W, IV Bezout 263*183 == 1 (mod 512),
-        // Gold-197 Bezout 197*13 == 1 (mod 512), 3*tau = 243 -> 243 + 13 = 256, ATP 260 = 20*13,
-        // phase 352 = 256+96 -> C_3(352) = -32, and blue LED 441 = 21^2):
-        var full197 = CuboctahedronAutomatonKernel.ComputeBench197GoldBezoutMultiscaleClosure9();
-        Assert.Equal(new Ring9(164), full197.KokS4Flash164);
-        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full197.KokS4Flash164.ProjC);
-        Assert.Equal(new Ring9(169), full197.CoreSquare169);
-        Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full197.CoreSquare169);
-        Assert.Equal(new Ring9(180), full197.Power180SectionCount);
-        Assert.Equal(new Ring9(183), full197.IvSeedBezout183);
-        Assert.Equal(Ring9.MuVac, Ring9.IvSeed * full197.IvSeedBezout183);
-        Assert.Equal(new Ring9(197), full197.Gold197SectionCount);
-        Assert.Equal(Ring9.MuVac, full197.Gold197SectionCount * Ring9.NPhi);
-        Assert.Equal(new Ring9(243), full197.ThreeTau243);
-        Assert.Equal(Ring9.PhiPauli, full197.ThreeTau243 + Ring9.NPhi);
-        Assert.Equal(new Ring9(260), full197.Atp260);
-        Assert.Equal(new Ring9(352), full197.Phase352);
-        Assert.Equal(new Ring9(441), full197.BlueLed441);
+        // Gold-197 Bezout 197*13 == 1 (mod 512), FPGA cold drive 228 = 12*19, UART divider 234 = 18*13,
+        // Pauli mirror 256 = 2^8, and Catalan seed IV(3) = 263 = 256 + 7):
+        var full263 = CuboctahedronAutomatonKernel.ComputeBench263IvSeedMultiscaleClosure9();
+        Assert.Equal(new Ring9(164), full263.KokS4Flash164);
+        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full263.KokS4Flash164.ProjC);
+        Assert.Equal(new Ring9(169), full263.CoreSquare169);
+        Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full263.CoreSquare169);
+        Assert.Equal(new Ring9(180), full263.Power180SectionCount);
+        Assert.Equal(new Ring9(183), full263.IvSeedBezout183);
+        Assert.Equal(Ring9.MuVac, full263.IvSeed263SectionCount * full263.IvSeedBezout183);
+        Assert.Equal(new Ring9(197), full263.Gold197SectionCount);
+        Assert.Equal(Ring9.MuVac, full263.Gold197SectionCount * Ring9.NPhi);
+        Assert.Equal(new Ring9(228), full263.FpgaCold228SectionCount);
+        Assert.Equal(new Ring9(234), full263.Uart234SectionCount);
+        Assert.Equal(Ring9.PhiPauli, full263.Pauli256SectionCount);
+        Assert.Equal(Ring9.IvSeed, full263.IvSeed263SectionCount);
+        Assert.Equal(Ring9.DOutVertex, full263.IvSeed263SectionCount - full263.Pauli256SectionCount);
     }
 
     [Fact]
