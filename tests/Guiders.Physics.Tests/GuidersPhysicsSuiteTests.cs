@@ -588,6 +588,17 @@ public class GuidersPhysicsSuiteTests
         Ring9 zTriiodide160 = (Ring9.D * zIodine53) + Ring9.MuVac;
         Assert.Equal(Ring9.DOutEdge * zCarbonicAcid32, zTriiodide160);
         Assert.Equal(mmf42, Ring9.ZQuartz30 + Ring9.NLinks);
+
+        // 16) Snell/Fresnel quartz-water refraction ratio (3/2)/(4/3) = 9/8 = ModBits/NTri,
+        //     Fresnel reflection denominator (9 + 8)^2 = 17^2 = 289 (transmitted numerator 288 = 8 * 36),
+        //     66 mutual inductance coil pairs 6 * 11 = 66, and complete 55-node two-shell ball closure |B_2(3)| = 1 + 12 + 42 = 55 = Z(Cs):
+        Ring9 fresnelSum17 = Ring9.ModBits + Ring9.NTri;
+        Ring9 fresnelDenom289 = fresnelSum17 * fresnelSum17;
+        Assert.Equal(Ring9.NTri * (radialEdges12 + shellEdges24), fresnelDenom289 - Ring9.MuVac);
+        Ring9 mutualPairs66 = Ring9.NSq * (Ring9.NLinks - Ring9.MuVac);
+        Assert.Equal(new Ring9(66), mutualPairs66);
+        Ring9 ballB2Nodes55 = Ring9.MuVac + Ring9.NLinks + mmf42;
+        Assert.Equal(Ring9.DOutEdge * (Ring9.NLinks - Ring9.MuVac), ballB2Nodes55);
     }
 
     [Fact]
