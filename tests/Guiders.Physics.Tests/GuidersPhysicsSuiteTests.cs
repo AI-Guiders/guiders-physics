@@ -847,6 +847,19 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(123), full128.KokS3Flash123);
         Assert.Equal(new Ring9(127), full128.PeltierCouples127);
         Assert.Equal(Ring9.QSquare, full128.QuarterRing128SectionCount);
+
+        // Verify 147-Section |B_3(3)| = 3 * 7^2 = 147 Three-Shell Ball Full Self-Closure (Numbers 129..147:
+        // meniscus gate 129, ordered pairs / 6 CO2 / 12-beam collapse sum 132 = 12*11, Cs-133 mass 133 = 7*19 = 55+78,
+        // alpha_FS^-1 floor 137 = 128+9, collapse phase 139, palmitic lipid 144 = 12^2, and 147 = |B_3(3)|):
+        var full147 = CuboctahedronAutomatonKernel.ComputeBench147ThreeShellBallClosure9();
+        Assert.Equal(new Ring9(129), full147.MeniscusGate129);
+        Assert.Equal(new Ring9(132), full147.OrderedPairs132);
+        Assert.Equal(new Ring9(133), full147.Cesium133Mass);
+        Assert.Equal(new Ring9(137), full147.FineStructure137);
+        Assert.Equal(Ring9.CollapsePhi, full147.CollapsePhase139);
+        Assert.Equal(new Ring9(144), full147.PalmiticLipid144);
+        Assert.Equal(new Ring9(147), full147.ThreeShellBall147SectionCount);
+        Assert.Equal(Ring9.D, full147.ThreeShellBall147SectionCount - full147.PalmiticLipid144);
     }
 
     [Fact]
