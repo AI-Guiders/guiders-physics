@@ -709,6 +709,18 @@ public class GuidersPhysicsSuiteTests
             Assert.Equal(new Ring9((ushort)(2 * (nCoils + 1))), dBus.L2);
             Assert.Equal(activeCount, CuboctahedronAutomatonKernel.RecoverActiveCoilsFromImpedanceBus36(dBus));
         }
+
+        // Verify all 6 recipe shells (Gate #0 BZ 60, Cutlet 70, Bread 86, Vitamin C 92, Cappuccino 102, Lipid 144)
+        // and 3-second dry phase-cleaning protocol (139 -> 256):
+        ushort[] expectedRecipeShells = [60, 70, 86, 92, 102, 144];
+        for (byte rIdx = 0; rIdx < 6; rIdx++)
+        {
+            Assert.Equal(new Ring9(expectedRecipeShells[rIdx]), KitchenBenchDigitalTwin.GetRecipeTargetShellZ9(rIdx));
+            var proto = KitchenBenchDigitalTwin.BuildRecipeAndDryCleanProtocol9(rIdx);
+            Assert.Equal(Ring9.CollapsePhi, proto.ReleasePulsePhase);
+            Assert.Equal(Ring9.PhiPauli, proto.PauliEjectPhase);
+            Assert.True(KitchenBenchDigitalTwin.VerifyUart16ByteFrameCrc(proto.Uart0x02StartFrame16B));
+        }
     }
 
     [Fact]

@@ -274,4 +274,22 @@ public sealed class KitchenBenchDigitalTwin
         Ring9 nextArrivedDish = nextFpgaDrive - trueHardwareLagWithDrift;
         return (nextEstLag, nextArrivedDish, targetDishPhase - nextArrivedDish);
     }
+
+    public static Ring9 GetRecipeTargetShellZ9(byte recipeIndex) =>
+        recipeIndex switch
+        {
+            0 => Ring9.DOutEdge * Ring9.NLinks,                  // 60 = Gate #0 Bromate BrO3- (5 * 12)
+            1 => Ring9.KP + Ring9.NSq,                           // 70 = Cutlet Heme FeN4O2 (64 + 6)
+            2 => new Ring9(81) + Ring9.DOutEdge,                 // 86 = Bread Amylose Z(Rn) (81 + 5)
+            3 => new Ring9(92),                                  // 92 = Vitamin C S_3(3)
+            4 => new Ring9(102),                                 // 102 = Cappuccino Caffeine / BaTiO3 (6 * 17)
+            _ => Ring9.NLinks * Ring9.NLinks                     // 144 = Palmitic Lipid / Cheese (12 * 12)
+        };
+
+    public static (Ring9 ReleasePulsePhase, Ring9 PauliEjectPhase, byte[] Uart0x02StartFrame16B)
+        BuildRecipeAndDryCleanProtocol9(byte recipeIndex)
+    {
+        byte[] startFrame = PackUart16ByteFrame(0x02, recipeIndex, 1u, 0u);
+        return (Ring9.CollapsePhi, Ring9.PhiPauli, startFrame);
+    }
 }
