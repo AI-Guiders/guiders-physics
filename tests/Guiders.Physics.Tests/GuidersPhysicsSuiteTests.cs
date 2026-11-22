@@ -518,6 +518,13 @@ public class GuidersPhysicsSuiteTests
         Ring9 zTinSolder50 = Ring9.C0OverCSq * (Ring9.DOutEdge * Ring9.DOutEdge);
         Assert.Equal(Ring9.ZQuartz30 + (Ring9.DInSquare * Ring9.DOutEdge), zTinSolder50);
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.D));
+
+        // 8) Hydrophilic quartz glass silanol wetting group Z(-Si-OH) = 14 + 8 + 1 = 23 == 2*|N| - 1,
+        //    and hydrated hydrogen-bond bridge Z(SiOH + H2O) = 23 + 10 = 33 == Z(As):
+        Ring9 zSilanol23 = Ring9.ZSilicon14 + Ring9.NTri + Ring9.MuVac;
+        Assert.Equal((Ring9.C0OverCSq * Ring9.NLinks) - Ring9.MuVac, zSilanol23);
+        Ring9 zWater10 = Ring9.NTri + Ring9.C0OverCSq;
+        Assert.Equal(zArsenic33, zSilanol23 + zWater10);
     }
 
     [Fact]
