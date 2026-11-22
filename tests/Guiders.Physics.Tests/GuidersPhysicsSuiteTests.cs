@@ -873,7 +873,7 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full197.CoreSquare169);
         Assert.Equal(new Ring9(180), full197.Power180SectionCount);
         Assert.Equal(new Ring9(183), full197.IvSeedBezout183);
-        Assert.Equal(Ring9.MuVac, Ring9.InitialSeed * full197.IvSeedBezout183);
+        Assert.Equal(Ring9.MuVac, Ring9.IvSeed * full197.IvSeedBezout183);
         Assert.Equal(new Ring9(197), full197.Gold197SectionCount);
         Assert.Equal(Ring9.MuVac, full197.Gold197SectionCount * Ring9.NPhi);
         Assert.Equal(new Ring9(243), full197.ThreeTau243);
