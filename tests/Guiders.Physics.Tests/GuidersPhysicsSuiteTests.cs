@@ -533,6 +533,13 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.KP, Ring9.C0OverCSq * zCarbonicAcid32);
         Ring9 srfRatio87 = Ring9.MHat - zWater10;
         Assert.Equal(Ring9.MHat, srfRatio87 + zWater10);
+
+        // 10) PDMS silicone acoustic couplant shell Z(C2H6SiO) = 12 + 6 + 14 + 8 = 40 == DPhiDisc - 1 (deadband == 0),
+        //     and 30-node kitchen bench closure 3 * 10 = 30 == ZQuartz30:
+        Ring9 zPdms40 = Ring9.NLinks + Ring9.NSq + Ring9.ZSilicon14 + Ring9.NTri;
+        Assert.Equal(Ring9.DPhiDisc - Ring9.MuVac, zPdms40);
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(zPdms40));
+        Assert.Equal(Ring9.ZQuartz30, Ring9.D * zWater10);
     }
 
     [Fact]
