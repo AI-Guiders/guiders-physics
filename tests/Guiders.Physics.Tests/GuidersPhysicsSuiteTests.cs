@@ -689,6 +689,13 @@ public class GuidersPhysicsSuiteTests
             Assert.Equal(Ring9.CollapsePhi, pll.NextTickArrivedDishPhase);
             Assert.Equal(Ring9.Zero, pll.NextTickPhaseError);
         }
+
+        // Verify 4-channel nilpotent holonomic tomograph (2*(I_4 + N_nil), N_nil^3 == 0) on Bus36
+        // de-mixing (s0 = Z(Si)=14, s1 = Z(O2)=16, s2 = Z(SiO2)=30, s3 = Z(SiO4)=46):
+        Bus36 clean4 = new(Ring9.ZSilicon14, new Ring9(16), new Ring9(30), new Ring9(46));
+        Bus36 mixed4 = CuboctahedronAutomatonKernel.NilpotentTomographForward2xBus36(clean4);
+        Bus36 rec4 = CuboctahedronAutomatonKernel.NilpotentTomographInverse24xBus36(mixed4);
+        Assert.Equal(clean4, rec4);
     }
 
     [Fact]

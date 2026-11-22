@@ -933,6 +933,30 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 NilpotentTomographForward2xBus36(Bus36 cleanSensors4) =>
+        new(
+            (Ring9.C0OverCSq * cleanSensors4.L0) + cleanSensors4.L1,
+            (Ring9.C0OverCSq * cleanSensors4.L1) + (Ring9.C0OverCSq * cleanSensors4.L2),
+            Ring9.C0OverCSq * cleanSensors4.L2,
+            Ring9.C0OverCSq * cleanSensors4.L3);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 NilpotentTomographInverse24xBus36(Bus36 mixedSensors4)
+    {
+        ushort y0 = mixedSensors4.L0.Bits9;
+        ushort y1 = mixedSensors4.L1.Bits9;
+        ushort y2 = mixedSensors4.L2.Bits9;
+        ushort y3 = mixedSensors4.L3.Bits9;
+
+        ushort s0 = (ushort)(((12 * y0) + (6 * y2) - (6 * y1)) / 24);
+        ushort s1 = (ushort)(((12 * y1) - (12 * y2)) / 24);
+        ushort s2 = (ushort)((12 * y2) / 24);
+        ushort s3 = (ushort)((12 * y3) / 24);
+
+        return new Bus36(new Ring9(s0), new Ring9(s1), new Ring9(s2), new Ring9(s3));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
