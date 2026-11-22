@@ -667,6 +667,16 @@ public class GuidersPhysicsSuiteTests
                 Ring9.MuVac, Ring9.MuVac, sensors.AcousticWave, sensors.ReactionCurrent);
             Assert.Equal(targetPhi, recPhi);
         }
+
+        // Verify full 52-minute (53 timepoints t = 0..52) KitchenBenchDigitalTwin in Guiders.Physics.Engine:
+        var benchTwin = new KitchenBenchDigitalTwin();
+        for (int minute = 0; minute <= 52; minute++)
+        {
+            var snap = benchTwin.EvaluateMinute(minute);
+            Assert.Equal(snap.TargetDishPhase, snap.ArrivedDishPhase);
+            Assert.Equal(snap.TargetDishPhase, snap.RecoveredTelemetryPhase);
+            Assert.True(KitchenBenchDigitalTwin.VerifyUart16ByteFrameCrc(snap.Uart0x08CalibrationFrame16B));
+        }
     }
 
     [Fact]
