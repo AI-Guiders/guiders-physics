@@ -784,6 +784,18 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.NTri, full42.WorstCaseNoise8);
         Assert.Equal(new Ring9(33), full42.HeisenbergMargin33);
         Assert.Equal(new Ring9(42), full42.FullSection42Count);
+
+        // Verify 55-Section |B_2(3)| Two-Shell Ball Full Closure (Mains peak 312 = 24*13 V,
+        // 20 canonical L-amino acids, Aspartate Z=70=Heme, Histidine Z=82=81+1, Tryptophan Z=108=12*9 bit bus,
+        // 49 = 7^2 MuJoCo geoms, total sections = 55 = |B_2(3)| = Z(Cs)):
+        var full55 = CuboctahedronAutomatonKernel.ComputeBench55TwoShellBallClosure9();
+        Assert.Equal(new Ring9(312), full55.MainsPeak312V);
+        Assert.Equal(new Ring9(20), full55.CanonicalAminoAcids20);
+        Assert.Equal(new Ring9(70), full55.AspartateHeme70);
+        Assert.Equal(new Ring9(82), full55.HistidineLigand82);
+        Assert.Equal(new Ring9(108), full55.TryptophanBus108);
+        Assert.Equal(new Ring9(49), full55.MujocoGeoms49);
+        Assert.Equal(new Ring9(55), full55.TwoShellBall55);
     }
 
     [Fact]
