@@ -233,8 +233,6 @@ public sealed class KitchenBenchDigitalTwin
         Ring9 recovered = CuboctahedronAutomatonKernel.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
             Ring9.MuVac, Ring9.MuVac, telemetry.AcousticWave, telemetry.ReactionCurrent);
 
-        byte[] uart0x08 = PackUart16ByteFrame(0x08, 1u, (uint)(totalLag == Ring9.Zero ? 0 : (512 + (totalLag - Ring9.Zero).ProjC.ProjS == Ring9.Zero ? 0 : 0)), 2u);
-        // Use exact totalLag bits via lookup-free ring equality:
         uint lagInt = 0;
         for (ushort cand = 0; cand < 512; cand++)
         {
@@ -244,7 +242,7 @@ public sealed class KitchenBenchDigitalTwin
                 break;
             }
         }
-        uart0x08 = PackUart16ByteFrame(0x08, 1u, lagInt, 2u);
+        byte[] uart0x08 = PackUart16ByteFrame(0x08, 1u, lagInt, 2u);
 
         return new KitchenBenchStageSnapshot9(
             new Ring9((ushort)m),
