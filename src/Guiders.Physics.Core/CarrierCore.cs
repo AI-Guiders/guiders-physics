@@ -1007,6 +1007,17 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 PyrazineAroma42, Ring9 PeptideBond22, Ring9 HydratedPeptide32, Bus36 AudibleSubharmonicClocks32768)
+        ComputeMaillardAromaAndAudibleSubharmonic9()
+    {
+        Ring9 pyrazine42 = (Ring9.DInSquare * Ring9.NSq) + (Ring9.DInSquare * Ring9.MuVac) + (Ring9.C0OverCSq * Ring9.DOutVertex);
+        Ring9 peptide22 = Ring9.NSq + Ring9.NTri + Ring9.DOutVertex + Ring9.MuVac;
+        Ring9 hydrated32 = peptide22 + (Ring9.NTri + Ring9.C0OverCSq);
+        Bus36 audible32768 = new(Ring9.Zero, Ring9.KP, Ring9.Zero, Ring9.Zero); // 0 + 64 * 512 = 32,768 = 4 * eps
+        return (pyrazine42, peptide22, hydrated32, audible32768);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

@@ -751,6 +751,14 @@ public class GuidersPhysicsSuiteTests
         // and 3D Petri Dish CuboctahedronCarrier reversible step cycle:
         Assert.True(KitchenBenchDigitalTwin.VerifyAcousticFixedPointAcross4OperatingModes9());
         Assert.True(KitchenBenchDigitalTwin.Run3DPetriLatticeReversibleCycle9(4));
+
+        // Verify 32-Section Half-Pauli Closure (Maillard pyrazine C4H4N2 = 42 = S_2(3),
+        // peptide bond -CO-NH- = 22 = Z(CO2), hydrated peptide = 32 = K_P/2, audible subharmonic 32,768 = Bus36(0,64,0,0)):
+        var maillard32 = CuboctahedronAutomatonKernel.ComputeMaillardAromaAndAudibleSubharmonic9();
+        Assert.Equal(new Ring9(42), maillard32.PyrazineAroma42);
+        Assert.Equal(new Ring9(22), maillard32.PeptideBond22);
+        Assert.Equal(new Ring9(32), maillard32.HydratedPeptide32);
+        Assert.Equal(Ring9.KP, maillard32.AudibleSubharmonicClocks32768.L1);
     }
 
     [Fact]
