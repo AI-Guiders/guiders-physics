@@ -1136,8 +1136,8 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount)
-        ComputeBench289FresnelMultiscaleClosure9()
+    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount, Ring9 StandardTemp298K, Ring9 TwelveGateSum300, Ring9 Mains312SectionCount)
+        ComputeBench312MainsMultiscaleClosure9()
     {
         Ring9 kok164 = Ring9.DInSquare * Ring9.DPhiDisc;
         Ring9 sq169 = Ring9.NPhi * Ring9.NPhi;
@@ -1151,7 +1151,11 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 ice273 = Ring9.SeamTicks * Ring9.NPhi;
         Ring9 fresnel17 = Ring9.ModBits + Ring9.NTri;
         Ring9 sec289 = fresnel17 * fresnel17;
-        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289);
+        Ring9 s2_42 = (Ring9.DInSquare * Ring9.ModBits) + Ring9.NSq;
+        Ring9 temp298 = pauli256 + s2_42;
+        Ring9 gate300 = Ring9.NLinks * Ring9.BezoutInv41;
+        Ring9 mains312 = (Ring9.C0OverCSq * Ring9.NLinks) * Ring9.NPhi;
+        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289, temp298, gate300, mains312);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
