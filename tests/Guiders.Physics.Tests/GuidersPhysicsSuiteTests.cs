@@ -796,6 +796,18 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(108), full55.TryptophanBus108);
         Assert.Equal(new Ring9(49), full55.MujocoGeoms49);
         Assert.Equal(new Ring9(55), full55.TwoShellBall55);
+
+        // Verify 72-Section VerletCell72 Full Self-Closure (Numbers 56..72: hot coil lags 58, 59, 61, 62..66,
+        // hydrogen bond modulus 63 = 7*9, stasis holding temp 65 = 5*13, and 72 = 8*9 = dim(VerletCell72)):
+        var full72 = CuboctahedronAutomatonKernel.ComputeBench72VerletCellClosure9();
+        Assert.Equal(new Ring9(58), full72.HotCoilLag58);
+        Assert.Equal(new Ring9(59), full72.MidCoilLag59);
+        Assert.Equal(new Ring9(61), full72.EarlyCoilLag61);
+        Assert.Equal(new Ring9(62), full72.MinCoilLag62);
+        Assert.Equal(new Ring9(63), full72.HydrogenBond63);
+        Assert.Equal(new Ring9(65), full72.StasisTemp65);
+        Assert.Equal(new Ring9(66), full72.MaxCoilLag66);
+        Assert.Equal(new Ring9(72), full72.Verlet72SectionCount);
     }
 
     [Fact]
