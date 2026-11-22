@@ -525,6 +525,14 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal((Ring9.C0OverCSq * Ring9.NLinks) - Ring9.MuVac, zSilanol23);
         Ring9 zWater10 = Ring9.NTri + Ring9.C0OverCSq;
         Assert.Equal(zArsenic33, zSilanol23 + zWater10);
+
+        // 9) Moist kitchen air carbonic acid shell Z(CO2 + H2O) = 22 + 10 = 32 == KP / 2,
+        //    and coil Self-Resonant Frequency margin ratio f_SRF / f_512 = 87 == MHat - 10:
+        Ring9 zCo2_22 = Ring9.NSq + Ring9.ZOxygen2_16;
+        Ring9 zCarbonicAcid32 = zCo2_22 + zWater10;
+        Assert.Equal(Ring9.KP, Ring9.C0OverCSq * zCarbonicAcid32);
+        Ring9 srfRatio87 = Ring9.MHat - zWater10;
+        Assert.Equal(Ring9.MHat, srfRatio87 + zWater10);
     }
 
     [Fact]
