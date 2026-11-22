@@ -608,6 +608,17 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.NSq * Ring9.ZAlphaQuartz90, Ring9.NLinks * wallCap45);
         Ring9 acrylamideThreshold120 = zWater10 * Ring9.NLinks;
         Assert.Equal(Ring9.DInSquare * Ring9.NPhi, acrylamideThreshold120 - (Ring9.KP + Ring9.DInSquare));
+
+        // 18) Complete 81-node Heisenberg equivalence class bench closure: 72 (VerletCell72) + 9 (ModBits) = 81 == 3^4 = tau81,
+        //     isotonic NaCl magic shell Z(NaCl) = 10 + 18 = 28 == 4 * 7, natural K-40 isotope (19 + 21 = 40 = DPhiDisc - 1 -> deadband 0),
+        //     palmitic lipid emulsion ratio 144 == 2 * 72, and 52-min energy budget 12 * 13 = 156 Wh:
+        Assert.Equal(tau81, sigmaWater72 + Ring9.ModBits);
+        Assert.Equal(Ring9.DInSquare * Ring9.DOutVertex, zWater10 + (Ring9.C0OverCSq * Ring9.ModBits));
+        Ring9 zK40_19 = Ring9.MuVac + Ring9.NLinks + Ring9.NSq;
+        Assert.Equal(Ring9.DPhiDisc - Ring9.MuVac, zK40_19 + Ring9.SeamTicks);
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.SeamTicks));
+        Assert.Equal(Ring9.NLinks * Ring9.NLinks, Ring9.C0OverCSq * sigmaWater72);
+        Assert.Equal(new Ring9(156), Ring9.NLinks * Ring9.NPhi);
     }
 
     [Fact]
