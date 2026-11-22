@@ -759,6 +759,16 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(22), maillard32.PeptideBond22);
         Assert.Equal(new Ring9(32), maillard32.HydratedPeptide32);
         Assert.Equal(Ring9.KP, maillard32.AudibleSubharmonicClocks32768.L1);
+
+        // Verify 36-Section Bus36 Full Closure (Water dielectric 80 -> 64 = K_P at 68 C,
+        // Umami glutamic acid Z=78 = 6*13, Cysteine Z=64 = K_P, Cystine disulfide Z=126 = 2*63, Section count = 36 = 4*9):
+        var full36 = CuboctahedronAutomatonKernel.ComputeBench36SectionFullClosure9();
+        Assert.Equal(new Ring9(80), full36.WaterDielectric20C_80);
+        Assert.Equal(Ring9.KP, full36.WaterDielectric68C_64);
+        Assert.Equal(Ring9.NSq * Ring9.NPhi, full36.UmamiGlutamicAcid78);
+        Assert.Equal(Ring9.KP, full36.Cysteine64);
+        Assert.Equal(Ring9.QSquare - Ring9.C0OverCSq, full36.CystineDisulfide126);
+        Assert.Equal(Ring9.DInSquare * Ring9.ModBits, full36.Section36Count);
     }
 
     [Fact]

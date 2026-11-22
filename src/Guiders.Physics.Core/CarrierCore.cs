@@ -1018,6 +1018,19 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 WaterDielectric20C_80, Ring9 WaterDielectric68C_64, Ring9 UmamiGlutamicAcid78, Ring9 Cysteine64, Ring9 CystineDisulfide126, Ring9 Section36Count)
+        ComputeBench36SectionFullClosure9()
+    {
+        Ring9 eps20C = Ring9.C0OverCSq * (Ring9.DPhiDisc - Ring9.MuVac); // 2 * 40 = 80
+        Ring9 eps68C = eps20C - Ring9.ZOxygen2_16;                       // 80 - 16 = 64 = K_P
+        Ring9 umami78 = Ring9.NSq * Ring9.NPhi;                          // 6 * 13 = 78 = Z(Pt)
+        Ring9 cysteine64 = Ring9.KP;                                     // 64 = K_P
+        Ring9 cystine126 = (Ring9.C0OverCSq * cysteine64) - Ring9.C0OverCSq; // 128 - 2 = 126 = 2 * 63
+        Ring9 sec36 = Ring9.DInSquare * Ring9.ModBits;                   // 4 * 9 = 36 = dim(Bus36)
+        return (eps20C, eps68C, umami78, cysteine64, cystine126, sec36);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
