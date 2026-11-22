@@ -860,6 +860,22 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(144), full147.PalmiticLipid144);
         Assert.Equal(new Ring9(147), full147.ThreeShellBall147SectionCount);
         Assert.Equal(Ring9.D, full147.ThreeShellBall147SectionCount - full147.PalmiticLipid144);
+
+        // Verify 180-Section Full Multiscale Bench Self-Closure (Numbers 148..512..8192:
+        // Kok S4 flash 164 = 4*41 -> C_3(164) = -36, Gold-197 Bezout 197*13 == 1 (mod 512),
+        // 3*tau = 243 -> 243 + 13 = 256, ATP 260 = 20*13, phase 352 = 256+96 -> C_3(352) = -32,
+        // blue LED 441 = 21^2, and 180 = 12 * 15 = 147 + 33):
+        var full180 = CuboctahedronAutomatonKernel.ComputeBench180FullMultiscaleClosure9();
+        Assert.Equal(new Ring9(164), full180.KokS4Flash164);
+        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full180.KokS4Flash164.ProjC);
+        Assert.Equal(new Ring9(197), full180.Gold197Mass);
+        Assert.Equal(Ring9.MuVac, full180.Gold197Mass * Ring9.NPhi);
+        Assert.Equal(new Ring9(243), full180.ThreeTau243);
+        Assert.Equal(Ring9.PhiPauli, full180.ThreeTau243 + Ring9.NPhi);
+        Assert.Equal(new Ring9(260), full180.Atp260);
+        Assert.Equal(new Ring9(352), full180.Phase352);
+        Assert.Equal(new Ring9(441), full180.BlueLed441);
+        Assert.Equal(new Ring9(180), full180.Full180SectionCount);
     }
 
     [Fact]
