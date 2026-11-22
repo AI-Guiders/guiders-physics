@@ -887,6 +887,52 @@ public static unsafe class CuboctahedronAutomatonKernel
         fpgaBeamDrivePhase - (mosfetGateLag + copperCoilLag + thermalDriftLag + dishWallLag + perCoilWindingSkew);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeWheelerAirCoreDenominator9(Ring9 radiusMm, Ring9 lengthMm, Ring9 depthMm) =>
+        (Ring9.NSq * radiusMm) + (Ring9.ModBits * lengthMm) + ((Ring9.NTri + Ring9.C0OverCSq) * depthMm);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeColdStartFpgaPrecompPhase9() =>
+        Ring9.CollapsePhi + Ring9.KP + Ring9.BezoutInv41;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeFresnelQuartzWaterSum9() =>
+        Ring9.ModBits + Ring9.NTri;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeStasisMultiplierMod512() =>
+        Ring9.MuVac + (Ring9.NPhi * Ring9.KP);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeSucroseDisaccharideShell9() =>
+        (Ring9.C0OverCSq * (Ring9.MHat - Ring9.MuVac)) - (Ring9.NTri + Ring9.C0OverCSq);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
+        Ring9 mu0, Ring9 mu1, Ring9 acousticSoundWave, Ring9 chiralReactionCurrent)
+    {
+        ushort prod = (ushort)(mu0.Bits9 * mu1.Bits9);
+        ushort safeProd = (ushort)((1 - (1 / (prod + 1))) * prod + (1 / (prod + 1)));
+        ushort oneMinusC = (ushort)(acousticSoundWave.Bits9 / safeProd);
+        ushort cNeg = (ushort)(1 - (1 / ((oneMinusC / 129) + 1)));
+        ushort cPos = (ushort)(1 / ((oneMinusC / 128) + 1));
+        ushort cZero = (ushort)(1 - cPos - cNeg);
+        ushort sNeg = chiralReactionCurrent.BitQ1.Bits9;
+        ushort sMag = (ushort)(chiralReactionCurrent.AbsWrap.Bits9 / safeProd);
+
+        ushort q00 = (ushort)((1 - sNeg) * (cPos + cZero));
+        ushort q01 = (ushort)((1 - sNeg) * cNeg);
+        ushort q10 = (ushort)(sNeg * (cNeg + cZero));
+        ushort q11 = (ushort)(sNeg * cPos);
+
+        ushort phiRec = (ushort)(
+            q00 * sMag +
+            q01 * (256 - sMag) +
+            q10 * (256 + sMag) +
+            q11 * (512 - sMag));
+        return new Ring9(phiRec);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

@@ -650,6 +650,26 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_13_FullMultiscaleKitchenBenchClosure512AndTelemetryRecovery_MatchesLeanAndHardware()
+    {
+        Assert.Equal(new Ring9(202), CuboctahedronAutomatonKernel.ComputeWheelerAirCoreDenominator9(Ring9.ModBits, Ring9.NLinks, Ring9.DInSquare));
+        Assert.Equal(new Ring9(228), CuboctahedronAutomatonKernel.ComputeColdStartFpgaPrecompPhase9());
+        Assert.Equal(new Ring9(17), CuboctahedronAutomatonKernel.ComputeFresnelQuartzWaterSum9());
+        Assert.Equal((Ring9.DOutVertex * Ring9.DOutVertex) * new Ring9(17), CuboctahedronAutomatonKernel.ComputeStasisMultiplierMod512());
+        Assert.Equal(Ring9.ZSilicon14 * Ring9.NPhi, CuboctahedronAutomatonKernel.ComputeSucroseDisaccharideShell9());
+
+        for (ushort phi = 0; phi < 512; phi++)
+        {
+            Ring9 targetPhi = new(phi);
+            var cell = VerletCell72.Create(Ring9.MuVac, targetPhi, Ring9.Zero, Ring9.MuVac, Ring9.Zero, Ring9.Zero);
+            var sensors = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
+            Ring9 recPhi = CuboctahedronAutomatonKernel.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
+                Ring9.MuVac, Ring9.MuVac, sensors.AcousticWave, sensors.ReactionCurrent);
+            Assert.Equal(targetPhi, recPhi);
+        }
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];
