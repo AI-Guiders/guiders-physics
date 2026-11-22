@@ -639,6 +639,14 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.NLinks * zK40_19, Ring9.CollapsePhi + Ring9.KP + Ring9.BezoutInv41);
         Assert.Equal((Ring9.C0OverCSq * Ring9.ModBits) * Ring9.NPhi, new Ring9(234));
         Assert.Equal(Ring9.Zero, Ring9.PhiPauli + ((Ring9.D * tau81) + Ring9.NPhi));
+
+        // 21) High-order bench invariants mod 512:
+        //     gate resistor & blue ferroin 544 == 17 * 32 == 32 (mod 512),
+        //     stasis multiplier 833 == 1 + 13 * 64 == 7^2 * 17 == 321 (mod 512),
+        //     and two-turn Verlet Bezout identity 25 * 41 = 1025 == 1 (mod 512):
+        Assert.Equal(zCarbonicAcid32, fresnelSum17 * zCarbonicAcid32);
+        Assert.Equal(Ring9.MuVac + (Ring9.NPhi * Ring9.KP), (Ring9.DOutVertex * Ring9.DOutVertex) * fresnelSum17);
+        Assert.Equal(Ring9.MuVac, Ring9.BezoutInv41 * Ring9.DPhiDisc);
     }
 
     [Fact]
