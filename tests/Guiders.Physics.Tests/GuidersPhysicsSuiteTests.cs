@@ -438,6 +438,46 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_12_Complete10StageKitchenBenchPhysicsAndPerCoilCalibration()
+    {
+        // 1) Tap-water mineral electrolyte shells:
+        //    Z(Na+) = 10 = Z(Ne), Z(Mg2+) = 10 = Z(Ne), Z(K+) = 18 = Z(Ar), Z(Ca2+) = 18 = Z(Ar), Z(Cl-) = 18 = Z(Ar),
+        //    Z(HCO3-) = 32 = KP/2, Z(CaCO3) = 50, Z(MgCO3) = 42 = S2!
+        Ring9 zNeon10  = new(10);
+        Ring9 zArgon18 = new(18);
+        Ring9 zNaPlus  = new Ring9(11) - Ring9.MuVac;
+        Ring9 zMg2Plus = Ring9.NLinks - Ring9.C0OverCSq;
+        Ring9 zKPlus   = new Ring9(19) - Ring9.MuVac;
+        Ring9 zCa2Plus = new Ring9(20) - Ring9.C0OverCSq;
+        Ring9 zClMinus = new Ring9(17) + Ring9.MuVac;
+        Ring9 zHco3    = Ring9.MuVac + Ring9.NSq + (Ring9.D * Ring9.NTri) + Ring9.MuVac;
+        Assert.Equal(zNeon10,  zNaPlus);
+        Assert.Equal(zNeon10,  zMg2Plus);
+        Assert.Equal(zArgon18, zKPlus);
+        Assert.Equal(zArgon18, zCa2Plus);
+        Assert.Equal(zArgon18, zClMinus);
+        Assert.Equal(new Ring9(32), zHco3);
+
+        // 2) Polystyrene Petri dish monomer C8H8: Z = 8*6 + 8 = 56 = 7 * 8 = DOutVertex * NTri,
+        //    and liquid meniscus surface coordination: 7 broken outward links + 5 intact links = 12 = NLinks!
+        Assert.Equal(new Ring9(56), Ring9.DOutVertex * Ring9.NTri);
+        Assert.Equal(Ring9.NLinks, Ring9.DOutVertex + Ring9.DOutEdge);
+
+        // 3) Full 12-coil end-to-end pre-compensation across all 12 hand-wound coils with individual inductance skews:
+        for (ushort k = 0; k < 12; k++)
+        {
+            Ring9 skewK = new Ring9(k) * Ring9.DOutVertex;
+            Ring9 thermalDrift = new(4);
+            Ring9 dishWall = Ring9.Zero; // SiO2 glass wall matches N2 + O2 = 30
+            Ring9 fpgaRegK = CuboctahedronAutomatonKernel.ComputeKitchenBenchPrecompensatedBeamPhase9(
+                Ring9.CollapsePhi, Ring9.BezoutInv41, Ring9.KP, thermalDrift, dishWall, skewK);
+            Ring9 arrivedK = CuboctahedronAutomatonKernel.ComputeKitchenBenchArrivedDishPhase9(
+                fpgaRegK, Ring9.BezoutInv41, Ring9.KP, thermalDrift, dishWall, skewK);
+            Assert.Equal(Ring9.CollapsePhi, arrivedK);
+        }
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];

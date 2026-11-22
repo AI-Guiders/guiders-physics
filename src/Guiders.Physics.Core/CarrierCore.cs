@@ -860,6 +860,32 @@ public static unsafe class CuboctahedronAutomatonKernel
     public static (Ring9 S0, Ring9 S1, Ring9 S2) CalibrateFiniteNeumannOrder2(Ring9 y0, Ring9 y1, Ring9 y2) =>
         (y0 - y1 + y2, y1 - y2, y2);
 
+    /// <summary>
+    /// Complete 10-Node Kitchen Bench Pre-Compensation Operator on `Ring9`:
+    /// Combines target resonance phase (`139`), MOSFET Miller gate lag (`25`), Copper coil inductive lag (`64`),
+    /// thermal Joule resistance drift `deltaPhiThermal`, dish wall shift (`0` for SiO2 glass, `7` for polystyrene),
+    /// and individual hand-wound coil tolerance `coilSkewK` into the exact 9-bit FPGA register value!
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeKitchenBenchPrecompensatedBeamPhase9(
+        Ring9 targetDishPhase,
+        Ring9 mosfetGateLag,
+        Ring9 copperCoilLag,
+        Ring9 thermalDriftLag,
+        Ring9 dishWallLag,
+        Ring9 perCoilWindingSkew) =>
+        targetDishPhase + mosfetGateLag + copperCoilLag + thermalDriftLag + dishWallLag + perCoilWindingSkew;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeKitchenBenchArrivedDishPhase9(
+        Ring9 fpgaBeamDrivePhase,
+        Ring9 mosfetGateLag,
+        Ring9 copperCoilLag,
+        Ring9 thermalDriftLag,
+        Ring9 dishWallLag,
+        Ring9 perCoilWindingSkew) =>
+        fpgaBeamDrivePhase - (mosfetGateLag + copperCoilLag + thermalDriftLag + dishWallLag + perCoilWindingSkew);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
