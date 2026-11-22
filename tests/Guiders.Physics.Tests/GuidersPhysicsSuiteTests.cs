@@ -629,6 +629,16 @@ public class GuidersPhysicsSuiteTests
         Ring9 ballB3Nodes147 = ballB2Nodes55 + shellS3_92;
         Assert.Equal(Ring9.D * Ring9.DOutVertex * Ring9.DOutVertex, ballB3Nodes147);
         Assert.Equal(Ring9.D, ballB3Nodes147 - (Ring9.NLinks * Ring9.NLinks));
+
+        // 20) Complete 512-tick Z_512 ring kitchen bench closure:
+        //     sucrose disaccharide Z = 2*96 - 10 = 182 == 14 * 13 (ZSilicon14 * NPhi),
+        //     cold-start FPGA pre-compensated drive 139 + 64 + 25 = 228 == 12 * 19 (NLinks * zK40_19),
+        //     UART baud divider 27 MHz / 115200 = 234 == 18 * 13 (2 * ModBits * NPhi),
+        //     and full ring period 256 (PhiPauli) + 256 (3*81 + 13) == 0 (mod 512):
+        Assert.Equal(Ring9.ZSilicon14 * Ring9.NPhi, (Ring9.C0OverCSq * zGlucose96) - zWater10);
+        Assert.Equal(Ring9.NLinks * zK40_19, Ring9.CollapsePhi + Ring9.KP + Ring9.BezoutInv41);
+        Assert.Equal((Ring9.C0OverCSq * Ring9.ModBits) * Ring9.NPhi, new Ring9(234));
+        Assert.Equal(Ring9.Zero, Ring9.PhiPauli + ((Ring9.D * tau81) + Ring9.NPhi));
     }
 
     [Fact]
