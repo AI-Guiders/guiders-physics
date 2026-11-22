@@ -823,6 +823,29 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 CascadeAttenuatedStage9(Ring9 phiIn, Ring9 impedanceRatio)
+    {
+        ushort r = (ushort)((1 - (1 / (impedanceRatio.Bits9 + 1))) * impedanceRatio.Bits9 + (1 / (impedanceRatio.Bits9 + 1)));
+        ushort mag = phiIn.AbsWrap.Bits9;
+        ushort q = (ushort)(mag / r);
+        ushort isNeg = phiIn.BitQ1.Bits9;
+        Ring9 divided = new((ushort)((1 - 2 * isNeg) * q));
+        return ApplyHeisenbergDeadband(divided);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 CascadeUncompensatedArrival9(Ring9 phiDrive, Ring9 j1, Ring9 j2, Ring9 j3, Ring9 j4) =>
+        phiDrive + j1 + j2 + j3 + j4;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 CascadePrecompensatedDrive9(Ring9 phiTarget, Ring9 j1, Ring9 j2, Ring9 j3, Ring9 j4) =>
+        phiTarget - (j1 + j2 + j3 + j4);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 CascadeSubthresholdRotatorRelay4Stage9(Ring9 dphiSubthreshold) =>
+        dphiSubthreshold.ProjS.ProjS.ProjS.ProjS;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

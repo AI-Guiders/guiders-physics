@@ -330,6 +330,49 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_10_CascadedSystemInteractionAndInformationLoss_FourSystemTypes()
+    {
+        // Type I: Unmatched open-loop T-cascade (System_1 -> System_2 -> System_3 -> System_4 with impedance ratio 2 at each boundary):
+        // Even a 250-tick impulse decays 250 -> 125 -> 62 -> 31 (< 41 Heisenberg deadband!) -> 0 (100% information loss at System_4!)
+        Ring9 s1 = new(250);
+        Ring9 s2 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s1, Ring9.C0OverCSq);
+        Ring9 s3 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s2, Ring9.C0OverCSq);
+        Ring9 s4 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s3, Ring9.C0OverCSq);
+        Assert.Equal(new Ring9(125), s2);
+        Assert.Equal(new Ring9(62),  s3);
+        Assert.Equal(Ring9.Zero,     s4);
+
+        // Type II: Impedance-matched catalytic resonance cascade (A_coh = 139, unit impedance ratio 1 across all 4 stages):
+        Ring9 m2 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(Ring9.CollapsePhi, Ring9.MuVac);
+        Ring9 m3 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(m2, Ring9.MuVac);
+        Ring9 m4 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(m3, Ring9.MuVac);
+        Assert.Equal(Ring9.CollapsePhi, m4);
+
+        // Type III: Sub-threshold coherent M-channel inside [-40, +40] (81 states: 0 thermal quanta n_E == 0 and 100% lossless 4-stage rotator relay!):
+        for (ushort k = 0; k <= 40; k++)
+        {
+            Ring9 pos = new(k);
+            Ring9 neg = -pos;
+            Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(pos));
+            Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(neg));
+            Assert.Equal(pos, CuboctahedronAutomatonKernel.CascadeSubthresholdRotatorRelay4Stage9(pos));
+            Assert.Equal(neg, CuboctahedronAutomatonKernel.CascadeSubthresholdRotatorRelay4Stage9(neg));
+        }
+
+        // Type IV: Closed-loop pre-compensated drive cancels arbitrary multi-stage hardware jitters (UART, MOSFET, Coil, Dish wall) across all 512 target phases!
+        Ring9 jUart = new(17), jMosfet = -new Ring9(43), jCoil = new(29), jWall = new(58);
+        Assert.NotEqual(Ring9.CollapsePhi, CuboctahedronAutomatonKernel.CascadeUncompensatedArrival9(Ring9.CollapsePhi, jUart, jMosfet, jCoil, jWall));
+
+        for (ushort t = 0; t < 512; t++)
+        {
+            Ring9 target = new(t);
+            Ring9 drive = CuboctahedronAutomatonKernel.CascadePrecompensatedDrive9(target, jUart, jMosfet, jCoil, jWall);
+            Ring9 arrived = CuboctahedronAutomatonKernel.CascadeUncompensatedArrival9(drive, jUart, jMosfet, jCoil, jWall);
+            Assert.Equal(target, arrived);
+        }
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];
