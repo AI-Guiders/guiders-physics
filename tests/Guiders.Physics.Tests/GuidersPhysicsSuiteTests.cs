@@ -599,6 +599,15 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(66), mutualPairs66);
         Ring9 ballB2Nodes55 = Ring9.MuVac + Ring9.NLinks + mmf42;
         Assert.Equal(Ring9.DOutEdge * (Ring9.NLinks - Ring9.MuVac), ballB2Nodes55);
+
+        // 17) Complete 72-node VerletCell72 bit-budget bench closure: 55 (|B_2(3)|) + 17 (Fresnel 9+8) = 72 == 8 * 9 = sigmaWater72,
+        //     total 12-beam capacitive wall coupling 12 * 45 = 540 pF == 6 * 90 (NSq * ZAlphaQuartz90),
+        //     and acrylamide carcinogen-free safety margin 120 - 68 = 52 == 4 * 13 = Z(Te):
+        Assert.Equal(sigmaWater72, ballB2Nodes55 + fresnelSum17);
+        Ring9 wallCap45 = Ring9.DOutEdge * Ring9.ModBits;
+        Assert.Equal(Ring9.NSq * Ring9.ZAlphaQuartz90, Ring9.NLinks * wallCap45);
+        Ring9 acrylamideThreshold120 = zWater10 * Ring9.NLinks;
+        Assert.Equal(Ring9.DInSquare * Ring9.NPhi, acrylamideThreshold120 - (Ring9.KP + Ring9.DInSquare));
     }
 
     [Fact]
