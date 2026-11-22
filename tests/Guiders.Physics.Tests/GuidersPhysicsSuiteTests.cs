@@ -548,6 +548,17 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(turns60 * Ring9.DOutVertex, mmf42 * zWater10);
         Ring9 wheelerDenom202 = (Ring9.NSq * Ring9.ModBits) + (Ring9.ModBits * Ring9.NLinks) + (zWater10 * Ring9.DInSquare);
         Assert.Equal(Ring9.C0OverCSq * ((Ring9.DOutEdge * Ring9.DOutEdge * Ring9.DInSquare) + Ring9.MuVac), wheelerDenom202);
+
+        // 12) Surfactant-free glass pre-wash shells: baking soda Z(NaHCO3) = 11 + 1 + 6 + 24 = 42 == S_2(3),
+        //     ethanol Z(C2H5OH) = 12 + 6 + 8 = 26 == 3^3 - 1, pure water surface tension 72 == 8 * 9 = B_2(3) mN/m,
+        //     and photosynthetic LED spectral span 718 - 440 = 278 == 2 * 139 = C0OverCSq * CollapsePhi:
+        Ring9 zBakingSoda42 = Ring9.NLinks + Ring9.NSq + (Ring9.D * Ring9.NTri);
+        Assert.Equal(mmf42, zBakingSoda42);
+        Ring9 zEthanol26 = Ring9.NLinks + Ring9.NSq + Ring9.NTri;
+        Assert.Equal((Ring9.D * Ring9.D * Ring9.D) - Ring9.MuVac, zEthanol26);
+        Ring9 sigmaWater72 = Ring9.NTri * Ring9.ModBits;
+        Assert.Equal(Ring9.KP + Ring9.NTri, sigmaWater72);
+        Assert.Equal(Ring9.C0OverCSq * Ring9.CollapsePhi, new Ring9(278));
     }
 
     [Fact]
