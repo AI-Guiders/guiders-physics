@@ -808,6 +808,18 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(65), full72.StasisTemp65);
         Assert.Equal(new Ring9(66), full72.MaxCoilLag66);
         Assert.Equal(new Ring9(72), full72.Verlet72SectionCount);
+
+        // Verify 81-Section |E_Heis(3)| = 3^4 Full Self-Closure (Numbers 73..81: frame radius 73=64+9,
+        // optocoupler delay 74=2*37 ns, collagen 75=3*25, tetra-octahedral 76=4*19 -> 3*76=228,
+        // glutamate anion 77=7*11, ENIG gold plating 79=Z(Au), and 81 = 72 + 9 = 3^4):
+        var full81 = CuboctahedronAutomatonKernel.ComputeBench81HeisenbergClassClosure9();
+        Assert.Equal(new Ring9(73), full81.FrameRadius73Mm);
+        Assert.Equal(new Ring9(74), full81.Optocoupler74Ns);
+        Assert.Equal(new Ring9(75), full81.CollagenGate75);
+        Assert.Equal(new Ring9(76), full81.TetraOctahedral76);
+        Assert.Equal(new Ring9(77), full81.GlutamateAnion77);
+        Assert.Equal(new Ring9(79), full81.GoldPlating79);
+        Assert.Equal(new Ring9(81), full81.Heisenberg81SectionCount);
     }
 
     [Fact]
