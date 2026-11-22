@@ -370,6 +370,20 @@ public class GuidersPhysicsSuiteTests
             Ring9 arrived = CuboctahedronAutomatonKernel.CascadeUncompensatedArrival9(drive, jUart, jMosfet, jCoil, jWall);
             Assert.Equal(target, arrived);
         }
+
+        // Verify the 6 Human-Engineered System Classes Passports on Ring9:
+        // Class 1 (Digital Silicon/Quartz) & Class 3 (Air N2+O2 == SiO2 Glass Dish Wall == 30):
+        Ring9 zN2 = Ring9.C0OverCSq * Ring9.DOutVertex; // 2 * 7 = 14
+        Ring9 zO2 = Ring9.ZOxygen2_16;                  // 16
+        Assert.Equal(Ring9.ZQuartz30, Ring9.ZSilicon14 + zO2);
+        Assert.Equal(Ring9.ZQuartz30, zN2 + zO2);
+        Assert.Equal(Ring9.QuartzSiO2Phi, Ring9.ZQuartz30 * Ring9.DPhiDisc);
+        // Class 2 (RLC resonance at deltaPhi = 0 -> ProjS == 0, ProjC == QSquare = 128):
+        Assert.Equal(Ring9.Zero, Ring9.Zero.ProjS);
+        Assert.Equal(Ring9.QSquare, Ring9.Zero.ProjC);
+        // Class 4 (Aerospace Kutta-Joukowski vortex lift circulation = +1 & sub-threshold laminar boundary layer |40| -> n_E = 0):
+        Assert.Equal(Ring9.MuVac, CuboctahedronAutomatonKernel.PlaquetteWinding9(Ring9.Zero, new(130), new(260), new(390)));
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(Ring9.DPhiDisc - Ring9.MuVac));
     }
 
     [Fact]
