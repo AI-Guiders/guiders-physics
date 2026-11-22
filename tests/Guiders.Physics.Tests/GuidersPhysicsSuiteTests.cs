@@ -619,6 +619,16 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.SeamTicks));
         Assert.Equal(Ring9.NLinks * Ring9.NLinks, Ring9.C0OverCSq * sigmaWater72);
         Assert.Equal(new Ring9(156), Ring9.NLinks * Ring9.NPhi);
+
+        // 19) Complete 147-node three-shell cuboctahedral ball |B_3(3)| bench closure:
+        //     alpha-quartz trigonal unit cell 81 + 9 = 90 == ZAlphaQuartz90, Gaussian modulus 81 + 16 = 97 == MHat,
+        //     third shell S_3(3) = 92 (55 + 92 = 147 = 3 * 7^2), and human chromatin nucleosome bio-safety detuning 147 - 144 == 3 = D:
+        Assert.Equal(Ring9.ZAlphaQuartz90, tau81 + Ring9.ModBits);
+        Assert.Equal(Ring9.MHat, tau81 + Ring9.ZOxygen2_16);
+        Ring9 shellS3_92 = (zWater10 * Ring9.ModBits) + Ring9.C0OverCSq;
+        Ring9 ballB3Nodes147 = ballB2Nodes55 + shellS3_92;
+        Assert.Equal(Ring9.D * Ring9.DOutVertex * Ring9.DOutVertex, ballB3Nodes147);
+        Assert.Equal(Ring9.D, ballB3Nodes147 - (Ring9.NLinks * Ring9.NLinks));
     }
 
     [Fact]
