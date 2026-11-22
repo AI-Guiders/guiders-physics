@@ -317,6 +317,13 @@ public sealed class KitchenBenchDigitalTwin
         carrier.StepForward();
         carrier.StepBackward();
         carrier.StepBackward();
-        return carrier.Tick == Ring9.Zero && carrier[c, c, c] == initCenter;
+        VerletCell72 finalCenter = carrier[c, c, c];
+        return carrier.Tick == Ring9.Zero
+            && finalCenter.Mu0 == initCenter.Mu0
+            && finalCenter.Phi0Curr == initCenter.Phi0Curr
+            && finalCenter.Phi0Past == initCenter.Phi0Past
+            && finalCenter.Mu1 == initCenter.Mu1
+            && finalCenter.Phi1Curr == initCenter.Phi1Curr
+            && finalCenter.Phi1Past == initCenter.Phi1Past;
     }
 }
