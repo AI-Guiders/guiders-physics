@@ -861,21 +861,26 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(147), full147.ThreeShellBall147SectionCount);
         Assert.Equal(Ring9.D, full147.ThreeShellBall147SectionCount - full147.PalmiticLipid144);
 
-        // Verify 180-Section Full Multiscale Bench Self-Closure (Numbers 148..512..8192:
-        // Kok S4 flash 164 = 4*41 -> C_3(164) = -36, Gold-197 Bezout 197*13 == 1 (mod 512),
-        // 3*tau = 243 -> 243 + 13 = 256, ATP 260 = 20*13, phase 352 = 256+96 -> C_3(352) = -32,
-        // blue LED 441 = 21^2, and 180 = 12 * 15 = 147 + 33):
-        var full180 = CuboctahedronAutomatonKernel.ComputeBench180FullMultiscaleClosure9();
-        Assert.Equal(new Ring9(164), full180.KokS4Flash164);
-        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full180.KokS4Flash164.ProjC);
-        Assert.Equal(new Ring9(197), full180.Gold197Mass);
-        Assert.Equal(Ring9.MuVac, full180.Gold197Mass * Ring9.NPhi);
-        Assert.Equal(new Ring9(243), full180.ThreeTau243);
-        Assert.Equal(Ring9.PhiPauli, full180.ThreeTau243 + Ring9.NPhi);
-        Assert.Equal(new Ring9(260), full180.Atp260);
-        Assert.Equal(new Ring9(352), full180.Phase352);
-        Assert.Equal(new Ring9(441), full180.BlueLed441);
-        Assert.Equal(new Ring9(180), full180.Full180SectionCount);
+        // Verify 180-Section Consecutive Power Closure & 197-Section Gold-197 Bezout Multiscale Self-Closure
+        // (Numbers 1..180 consecutively + 182..512..8192: Kok S4 flash 164 = 4*41 -> C_3(164) = -36,
+        // core square 169 = 13^2 = 128 + 41, 180 = 12*15 W, IV Bezout 263*183 == 1 (mod 512),
+        // Gold-197 Bezout 197*13 == 1 (mod 512), 3*tau = 243 -> 243 + 13 = 256, ATP 260 = 20*13,
+        // phase 352 = 256+96 -> C_3(352) = -32, and blue LED 441 = 21^2):
+        var full197 = CuboctahedronAutomatonKernel.ComputeBench197GoldBezoutMultiscaleClosure9();
+        Assert.Equal(new Ring9(164), full197.KokS4Flash164);
+        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full197.KokS4Flash164.ProjC);
+        Assert.Equal(new Ring9(169), full197.CoreSquare169);
+        Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full197.CoreSquare169);
+        Assert.Equal(new Ring9(180), full197.Power180SectionCount);
+        Assert.Equal(new Ring9(183), full197.IvSeedBezout183);
+        Assert.Equal(Ring9.MuVac, Ring9.InitialSeed * full197.IvSeedBezout183);
+        Assert.Equal(new Ring9(197), full197.Gold197SectionCount);
+        Assert.Equal(Ring9.MuVac, full197.Gold197SectionCount * Ring9.NPhi);
+        Assert.Equal(new Ring9(243), full197.ThreeTau243);
+        Assert.Equal(Ring9.PhiPauli, full197.ThreeTau243 + Ring9.NPhi);
+        Assert.Equal(new Ring9(260), full197.Atp260);
+        Assert.Equal(new Ring9(352), full197.Phase352);
+        Assert.Equal(new Ring9(441), full197.BlueLed441);
     }
 
     [Fact]
