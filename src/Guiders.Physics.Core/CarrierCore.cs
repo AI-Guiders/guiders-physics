@@ -1136,8 +1136,8 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount, Ring9 StandardTemp298K, Ring9 TwelveGateSum300, Ring9 Mains312SectionCount, Ring9 Maillard341K, Ring9 Branching343SectionCount, Ring9 TwelveCopper348, Ring9 Phase352SectionCount)
-        ComputeBench352CatalyticPhaseMultiscaleClosure9()
+    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount, Ring9 StandardTemp298K, Ring9 TwelveGateSum300, Ring9 Mains312SectionCount, Ring9 Maillard341K, Ring9 Branching343SectionCount, Ring9 TwelveCopper348, Ring9 Phase352SectionCount, Ring9 Cutoff354K, Ring9 FullCircle360, Ring9 Boiling373K, Ring9 Euler384SectionCount)
+        ComputeBench384EulerPoleMultiscaleClosure9()
     {
         Ring9 kok164 = Ring9.DInSquare * Ring9.DPhiDisc;
         Ring9 sq169 = Ring9.NPhi * Ring9.NPhi;
@@ -1160,7 +1160,11 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 cu29 = (Ring9.DInSquare * Ring9.DOutVertex) + Ring9.MuVac;
         Ring9 cu348 = Ring9.NLinks * cu29;
         Ring9 ph352 = pauli256 + (Ring9.MHat - Ring9.MuVac);
-        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289, temp298, gate300, mains312, maillard341, branch343, cu348, ph352);
+        Ring9 cutoff354 = new Ring9(81) + ice273;
+        Ring9 circle360 = Ring9.C0OverCSq * sec180;
+        Ring9 boil373 = pauli256 + (Ring9.ModBits * Ring9.NPhi);
+        Ring9 euler384 = Ring9.D * Ring9.QSquare;
+        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289, temp298, gate300, mains312, maillard341, branch343, cu348, ph352, cutoff354, circle360, boil373, euler384);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
