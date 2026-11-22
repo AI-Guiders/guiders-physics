@@ -728,6 +728,16 @@ public class GuidersPhysicsSuiteTests
         var bjerknes = CuboctahedronAutomatonKernel.ComputePetriDishBjerknesRings9();
         Assert.Equal(Ring9.NSq, bjerknes.ConcentricRingsCount6);
         Assert.Equal(Ring9.D, bjerknes.WallClearanceMm3);
+
+        // Verify cavitation-free 12-beam ultrasonic focusing (256 / 12 = 21 = Seam21, n_E(21) = 0 at glass wall,
+        // coherent focal current 12 * 21 = 252 = 256 - 4 > 128) and 4-pole XY Euler chiral quadrupole torque:
+        var subCav = CuboctahedronAutomatonKernel.Compute12BeamSubcavitationFocus9();
+        Assert.Equal(Ring9.Seam21, subCav.SingleRayPhase21);
+        Assert.Equal(Ring9.Zero, subCav.SingleRayWallPhotons0);
+        Assert.Equal(Ring9.PhiPauli - Ring9.DInSquare, subCav.Coherent12BeamFocalCurrent252);
+        Assert.Equal(Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.QSquare));
+        Assert.Equal(-Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.D * Ring9.QSquare));
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.PhiPauli));
     }
 
     [Fact]

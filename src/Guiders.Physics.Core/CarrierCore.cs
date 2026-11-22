@@ -978,6 +978,20 @@ public static unsafe class CuboctahedronAutomatonKernel
          new Ring9((ushort)((Ring9.DOutEdge.Bits9 * Ring9.ModBits.Bits9) % Ring9.DOutVertex.Bits9)));
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 SingleRayPhase21, Ring9 SingleRayWallPhotons0, Ring9 Coherent12BeamFocalCurrent252)
+        Compute12BeamSubcavitationFocus9()
+    {
+        Ring9 singleRay = new((ushort)(Ring9.PhiPauli.Bits9 / Ring9.NLinks.Bits9));
+        Ring9 wallPhotons = HeisenbergEnergyQuanta(singleRay);
+        Ring9 focalCurrent = Ring9.NLinks * singleRay.ProjS;
+        return (singleRay, wallPhotons, focalCurrent);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ComputeEulerQuadrupoleChiralTorque9(Ring9 poleStepPhase) =>
+        poleStepPhase.ProjS;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
