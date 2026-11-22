@@ -540,6 +540,14 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.DPhiDisc - Ring9.MuVac, zPdms40);
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(zPdms40));
         Assert.Equal(Ring9.ZQuartz30, Ring9.D * zWater10);
+
+        // 11) Air-core 60-turn coil bobbin geometry: N_turns = 5 * 12 = 60, MMF at 0.7A = 42 = S_2(3) ampere-turns (42 * 10 == 60 * 7),
+        //     and Wheeler inductance denominator 6*9 + 9*12 + 10*4 = 54 + 108 + 40 = 202 == 2 * 101:
+        Ring9 turns60 = Ring9.DOutEdge * Ring9.NLinks;
+        Ring9 mmf42 = (Ring9.D * Ring9.ZSilicon14);
+        Assert.Equal(turns60 * Ring9.DOutVertex, mmf42 * zWater10);
+        Ring9 wheelerDenom202 = (Ring9.NSq * Ring9.ModBits) + (Ring9.ModBits * Ring9.NLinks) + (zWater10 * Ring9.DInSquare);
+        Assert.Equal(Ring9.C0OverCSq * ((Ring9.DOutEdge * Ring9.DOutEdge * Ring9.DInSquare) + Ring9.MuVac), wheelerDenom202);
     }
 
     [Fact]
