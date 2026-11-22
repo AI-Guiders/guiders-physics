@@ -503,6 +503,21 @@ public class GuidersPhysicsSuiteTests
         Ring9 zGallium31 = (Ring9.NTri * Ring9.DInSquare) - Ring9.MuVac;
         Ring9 zArsenic33 = (Ring9.NTri * Ring9.DInSquare) + Ring9.MuVac;
         Assert.Equal(Ring9.KP, zGallium31 + zArsenic33);
+
+        // 7) Ambient room light Lock-In rejection across all 512 ring ticks (sum of ProjS == 0 and sum of ProjC == 0),
+        //    lead-free solder Tin magic shell Z(Sn) = 2 * 25 = 50, and home 3D-printer ±0.2 mm tolerance (3 ticks -> deadband 0):
+        Ring9 lockInSumS = Ring9.Zero, lockInSumC = Ring9.Zero;
+        for (ushort phi = 0; phi < 512; phi++)
+        {
+            Ring9 r = new(phi);
+            lockInSumS = lockInSumS + r.ProjS;
+            lockInSumC = lockInSumC + r.ProjC;
+        }
+        Assert.Equal(Ring9.Zero, lockInSumS);
+        Assert.Equal(Ring9.Zero, lockInSumC);
+        Ring9 zTinSolder50 = Ring9.C0OverCSq * (Ring9.DOutEdge * Ring9.DOutEdge);
+        Assert.Equal(Ring9.ZQuartz30 + (Ring9.DInSquare * Ring9.DOutEdge), zTinSolder50);
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.D));
     }
 
     [Fact]
