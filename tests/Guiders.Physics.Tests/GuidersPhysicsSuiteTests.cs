@@ -576,6 +576,18 @@ public class GuidersPhysicsSuiteTests
         Ring9 shellEdges24 = Ring9.C0OverCSq * Ring9.NLinks;
         Assert.Equal(Ring9.DInSquare * Ring9.ModBits, radialEdges12 + shellEdges24);
         Assert.Equal(new Ring9(81), tau81);
+
+        // 15) Gate #0 Belousov-Zhabotinsky reagent shells: bromate Z(BrO3-) = 60 == turns60,
+        //     malonic acid Z(C3H4O4) = 54 == 6 * 9 = NSq * ModBits (difference 60 - 54 == 6 = NSq),
+        //     triiodide polarizer film Z(I3-) = 3 * 53 + 1 = 160 == 5 * 32,
+        //     and complete 42-node second-sphere bench closure 30 + 12 = 42 == S_2(3):
+        Ring9 zBromate60 = turns60;
+        Ring9 zMalonic54 = Ring9.NSq * Ring9.ModBits;
+        Assert.Equal(Ring9.NSq, zBromate60 - zMalonic54);
+        Ring9 zIodine53 = mmf42 + (Ring9.NLinks - Ring9.MuVac);
+        Ring9 zTriiodide160 = (Ring9.D * zIodine53) + Ring9.MuVac;
+        Assert.Equal(Ring9.DOutEdge * zCarbonicAcid32, zTriiodide160);
+        Assert.Equal(mmf42, Ring9.ZQuartz30 + Ring9.NLinks);
     }
 
     [Fact]
