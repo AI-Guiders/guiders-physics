@@ -992,6 +992,21 @@ public static unsafe class CuboctahedronAutomatonKernel
         poleStepPhase.ProjS;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 DewPoint12C, Ring9 WarmKitchen27C, Ring9 Maillard68C, Ring9 Cutoff81C, Ring9 Energy156Wh)
+        ComputeKitchenBenchThermalLadderAndEnergy9()
+    {
+        Ring9 dew12 = Ring9.NLinks;
+        Ring9 warm27 = Ring9.D * Ring9.D * Ring9.D;
+        Ring9 maillard68 = Ring9.KP + Ring9.DInSquare;
+        Ring9 cutoff81 = warm27 * Ring9.D;
+        Ring9 power180 = Ring9.NLinks * (Ring9.D * Ring9.DOutEdge);
+        Ring9 min52 = Ring9.DInSquare * Ring9.NPhi;
+        Ring9 min60 = Ring9.DInSquare * (Ring9.D * Ring9.DOutEdge);
+        Ring9 energy156 = new((ushort)((power180.Bits9 * min52.Bits9) / min60.Bits9));
+        return (dew12, warm27, maillard68, cutoff81, energy156);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

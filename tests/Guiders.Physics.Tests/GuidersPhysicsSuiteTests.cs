@@ -738,6 +738,14 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.QSquare));
         Assert.Equal(-Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.D * Ring9.QSquare));
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.PhiPauli));
+
+        // Verify 30-Section Thermodynamic Ladder (12 C [+15] -> 27 C [+41 = DPhiDisc] -> 68 C [+13 = NPhi] -> 81 C)
+        // and 180 W * 52 min / 60 min = 156 = 12 * 13 Wh energy closure:
+        var therm = CuboctahedronAutomatonKernel.ComputeKitchenBenchThermalLadderAndEnergy9();
+        Assert.Equal(Ring9.D * Ring9.DOutEdge, therm.WarmKitchen27C - therm.DewPoint12C);
+        Assert.Equal(Ring9.DPhiDisc, therm.Maillard68C - therm.WarmKitchen27C);
+        Assert.Equal(Ring9.NPhi, therm.Cutoff81C - therm.Maillard68C);
+        Assert.Equal(Ring9.NLinks * Ring9.NPhi, therm.Energy156Wh);
     }
 
     [Fact]
