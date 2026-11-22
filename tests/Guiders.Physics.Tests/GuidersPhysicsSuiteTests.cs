@@ -486,6 +486,23 @@ public class GuidersPhysicsSuiteTests
         Ring9 tau81 = Ring9.DPhiDisc + Ring9.DPhiDisc - Ring9.MuVac;
         Assert.Equal(Ring9.PhiPauli, (Ring9.D * tau81) + Ring9.NPhi);
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.MuVac));
+
+        // 6) Earth geomagnetic field antipodal sum across all 12 O_2(3) vertices == (0, 0, 0),
+        //    and USB optocoupler GaAs LED shell Z(Ga_31) + Z(As_33) = 31 + 33 == 64 == KP:
+        Ring9 sumDz = Ring9.Zero, sumDy = Ring9.Zero, sumDx = Ring9.Zero;
+        for (int k = 0; k < 12; k++)
+        {
+            var (dz, dy, dx) = Ring9.CuboctOffsets12[k];
+            sumDz = sumDz + dz;
+            sumDy = sumDy + dy;
+            sumDx = sumDx + dx;
+        }
+        Assert.Equal(Ring9.Zero, sumDz);
+        Assert.Equal(Ring9.Zero, sumDy);
+        Assert.Equal(Ring9.Zero, sumDx);
+        Ring9 zGallium31 = (Ring9.NTri * Ring9.DInSquare) - Ring9.MuVac;
+        Ring9 zArsenic33 = (Ring9.NTri * Ring9.DInSquare) + Ring9.MuVac;
+        Assert.Equal(Ring9.KP, zGallium31 + zArsenic33);
     }
 
     [Fact]
