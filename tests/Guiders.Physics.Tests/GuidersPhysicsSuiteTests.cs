@@ -481,11 +481,11 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.NLinks - Ring9.MuVac, Ring9.DInSquare + Ring9.C0OverCSq + Ring9.DInSquare + Ring9.MuVac);
         Assert.Equal(Ring9.Zero, (Ring9.DInSquare * Ring9.MuVac) + (Ring9.DInSquare * Ring9.MinusOne));
 
-        // 5) Schottky flyback relaxation law: 3 * 81 + 13 = 243 + 13 = 256 = HalfTurn,
-        //    and 8-bit webcam ADC ±1 LSB quantization step lies inside Heisenberg deadband (n_E(1) == 0):
-        Ring9 tau81 = Ring9.HeisenbergHalfWidth + Ring9.HeisenbergHalfWidth + Ring9.MuVac;
-        Assert.Equal(Ring9.HalfTurn, (Ring9.D * tau81) + Ring9.NPhi);
-        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergDeadband9(Ring9.MuVac));
+        // 5) Schottky flyback relaxation law: 3 * 81 + 13 = 243 + 13 = 256 = PhiPauli,
+        //    and 8-bit webcam ADC ±1 LSB quantization step lies inside Heisenberg deadband (ApplyHeisenbergDeadband(1) == 0):
+        Ring9 tau81 = Ring9.DPhiDisc + Ring9.DPhiDisc - Ring9.MuVac;
+        Assert.Equal(Ring9.PhiPauli, (Ring9.D * tau81) + Ring9.NPhi);
+        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ApplyHeisenbergDeadband(Ring9.MuVac));
     }
 
     [Fact]
