@@ -559,6 +559,16 @@ public class GuidersPhysicsSuiteTests
         Ring9 sigmaWater72 = Ring9.NTri * Ring9.ModBits;
         Assert.Equal(Ring9.KP + Ring9.NTri, sigmaWater72);
         Assert.Equal(Ring9.C0OverCSq * Ring9.CollapsePhi, new Ring9(278));
+
+        // 13) Stage 0 Peltier TEC1-12706 condenser: 127 = QSquare - 1 couples, Z(Te) = 4 * 13 = 52, Z(Bi) = 81 + 2 = 83,
+        //     Maillard crust target temperature 68 C = KP + 4, and photosynthetic balance 6*22 + 6*10 = 192 = 96 + 96:
+        Assert.Equal(Ring9.QSquare - Ring9.MuVac, new Ring9(127));
+        Assert.Equal(Ring9.DInSquare * Ring9.NPhi, new Ring9(52));
+        Assert.Equal(tau81 + Ring9.C0OverCSq, new Ring9(83));
+        Assert.Equal(Ring9.KP + Ring9.DInSquare, new Ring9(68));
+        Ring9 zGlucose96 = Ring9.MHat - Ring9.MuVac;
+        Ring9 zSixO2_96 = Ring9.NSq * Ring9.ZOxygen2_16;
+        Assert.Equal(zGlucose96 + zSixO2_96, (Ring9.NSq * zCo2_22) + (Ring9.NSq * zWater10));
     }
 
     [Fact]
