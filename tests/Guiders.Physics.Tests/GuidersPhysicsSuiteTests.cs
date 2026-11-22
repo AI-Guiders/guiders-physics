@@ -475,6 +475,11 @@ public class GuidersPhysicsSuiteTests
                 fpgaRegK, Ring9.BezoutInv41, Ring9.KP, thermalDrift, dishWall, skewK);
             Assert.Equal(Ring9.CollapsePhi, arrivedK);
         }
+
+        // 4) Mutual inductance off-axis cancellation on O_2(3): 4 neighbors at 60 deg (+1), 2 at 90 deg (0), 4 at 120 deg (-1), 1 at 180 deg:
+        //    4 + 2 + 4 + 1 = 11 = NLinks - MuVac, and off-axis sum 4*(+1) + 4*(-1) == 0!
+        Assert.Equal(Ring9.NLinks - Ring9.MuVac, Ring9.DInSquare + Ring9.C0OverCSq + Ring9.DInSquare + Ring9.MuVac);
+        Assert.Equal(Ring9.Zero, (Ring9.DInSquare * Ring9.MuVac) + (Ring9.DInSquare * Ring9.MinusOne));
     }
 
     [Fact]
