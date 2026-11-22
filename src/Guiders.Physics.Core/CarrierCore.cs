@@ -1090,6 +1090,24 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 HotTotalLag83, Ring9 MidTotalLag84, Ring9 Lag20Min85, Ring9 EarlyTotalLag86, Ring9 SrfTripleCu87, Ring9 MsgLag88, Ring9 ColdNominalLag89, Ring9 MaxCoil11Lag91, Ring9 PolystyreneTotalLag96, Ring9 GaussianMhat97SectionCount)
+        ComputeBench97GaussianModulusClosure9()
+    {
+        Ring9 gate25 = Ring9.BezoutInv41;
+        Ring9 lag83 = (Ring9.KP - Ring9.NSq) + gate25;
+        Ring9 lag84 = (Ring9.KP - Ring9.DOutEdge) + gate25;
+        Ring9 lag85 = (Ring9.DOutEdge * Ring9.NLinks) + gate25;
+        Ring9 lag86 = (Ring9.KP - Ring9.D) + gate25;
+        Ring9 srf87 = (Ring9.KP - Ring9.C0OverCSq) + gate25;
+        Ring9 msg88 = (Ring9.KP - Ring9.MuVac) + gate25;
+        Ring9 cold89 = Ring9.KP + gate25;
+        Ring9 max91 = (Ring9.KP + Ring9.C0OverCSq) + gate25;
+        Ring9 poly96 = cold89 + Ring9.DOutVertex;
+        Ring9 mhat97 = (Ring9.ModBits * Ring9.ModBits) + (Ring9.DInSquare * Ring9.DInSquare);
+        return (lag83, lag84, lag85, lag86, srf87, msg88, cold89, max91, poly96, mhat97);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

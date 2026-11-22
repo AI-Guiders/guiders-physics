@@ -820,6 +820,20 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(77), full81.GlutamateAnion77);
         Assert.Equal(new Ring9(79), full81.GoldPlating79);
         Assert.Equal(new Ring9(81), full81.Heisenberg81SectionCount);
+
+        // Verify 97-Section M_hat(3) = 9^2 + 4^2 = 97 Full Self-Closure (Numbers 82..97:
+        // total thermal lag ladder 83..89..91, polystyrene total lag 96 = 89 + 7, and 97 = 81 + 16):
+        var full97 = CuboctahedronAutomatonKernel.ComputeBench97GaussianModulusClosure9();
+        Assert.Equal(new Ring9(83), full97.HotTotalLag83);
+        Assert.Equal(new Ring9(84), full97.MidTotalLag84);
+        Assert.Equal(new Ring9(85), full97.Lag20Min85);
+        Assert.Equal(new Ring9(86), full97.EarlyTotalLag86);
+        Assert.Equal(new Ring9(87), full97.SrfTripleCu87);
+        Assert.Equal(new Ring9(88), full97.MsgLag88);
+        Assert.Equal(new Ring9(89), full97.ColdNominalLag89);
+        Assert.Equal(new Ring9(91), full97.MaxCoil11Lag91);
+        Assert.Equal(new Ring9(96), full97.PolystyreneTotalLag96);
+        Assert.Equal(Ring9.MHat, full97.GaussianMhat97SectionCount);
     }
 
     [Fact]
