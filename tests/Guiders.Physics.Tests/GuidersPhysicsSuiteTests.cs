@@ -569,6 +569,13 @@ public class GuidersPhysicsSuiteTests
         Ring9 zGlucose96 = Ring9.MHat - Ring9.MuVac;
         Ring9 zSixO2_96 = Ring9.NSq * Ring9.ZOxygen2_16;
         Assert.Equal(zGlucose96 + zSixO2_96, (Ring9.NSq * zCo2_22) + (Ring9.NSq * zWater10));
+
+        // 14) Complete 36-edge unit-ball B_1(3) bench closure: 12 radial spokes + 24 shell edges = 36 == 4 * 9 = DInSquare * ModBits (Bus36),
+        //     and Heisenberg thermal emergency cutoff 81 C == 3^4 = tau81:
+        Ring9 radialEdges12 = Ring9.NLinks;
+        Ring9 shellEdges24 = Ring9.C0OverCSq * Ring9.NLinks;
+        Assert.Equal(Ring9.DInSquare * Ring9.ModBits, radialEdges12 + shellEdges24);
+        Assert.Equal(new Ring9(81), tau81);
     }
 
     [Fact]
