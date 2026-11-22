@@ -834,6 +834,19 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(91), full97.MaxCoil11Lag91);
         Assert.Equal(new Ring9(96), full97.PolystyreneTotalLag96);
         Assert.Equal(Ring9.MHat, full97.GaussianMhat97SectionCount);
+
+        // Verify 128-Section Q_square(3) = 128 Quarter-Ring Saddle Full Self-Closure (Numbers 98..128:
+        // Wheeler prime 101, Kok oxo / I2 106, collapse odd current S_3(139) = 117 = 9*13,
+        // meniscus-Fresnel 119 = 7*17, Kok S3 flash 123 = 3*41, Peltier 127, and 128 = Q_square):
+        var full128 = CuboctahedronAutomatonKernel.ComputeBench128QuarterRingSaddleClosure9();
+        Assert.Equal(new Ring9(101), full128.WheelerPrime101);
+        Assert.Equal(new Ring9(106), full128.KokOxoIodine106);
+        Assert.Equal(new Ring9(117), full128.CollapseOddCurrent117);
+        Assert.Equal(full128.CollapseOddCurrent117, Ring9.CollapsePhi.ProjS);
+        Assert.Equal(new Ring9(119), full128.MeniscusFresnel119);
+        Assert.Equal(new Ring9(123), full128.KokS3Flash123);
+        Assert.Equal(new Ring9(127), full128.PeltierCouples127);
+        Assert.Equal(Ring9.QSquare, full128.QuarterRing128SectionCount);
     }
 
     [Fact]
