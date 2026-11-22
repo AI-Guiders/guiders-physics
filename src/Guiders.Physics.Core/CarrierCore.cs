@@ -845,6 +845,21 @@ public static unsafe class CuboctahedronAutomatonKernel
     public static Ring9 CascadeSubthresholdRotatorRelay4Stage9(Ring9 dphiSubthreshold) =>
         dphiSubthreshold.ProjS.ProjS.ProjS.ProjS;
 
+    /// <summary>
+    /// Forward 3-layer nilpotent cross-channel perturbation `(I + N_pert)` on `Ring9^3` (`N_pert^3 == 0` in `d = 3`).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 Y0, Ring9 Y1, Ring9 Y2) ApplyNilpotentPerturbation3(Ring9 s0, Ring9 s1, Ring9 s2) =>
+        (s0 + s1, s1 + s2, s2);
+
+    /// <summary>
+    /// Exact 2nd-order finite Neumann perturbation inverse `(I + N_pert)^-1 = I - N_pert + N_pert^2` on `Ring9^3`:
+    /// recovers `(s0, s1, s2)` with ZERO infinite series and ZERO division!
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 S0, Ring9 S1, Ring9 S2) CalibrateFiniteNeumannOrder2(Ring9 y0, Ring9 y1, Ring9 y2) =>
+        (y0 - y1 + y2, y1 - y2, y2);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {

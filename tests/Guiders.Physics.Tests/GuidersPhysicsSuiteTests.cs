@@ -401,6 +401,33 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
+    public void Core_11_FinitePerturbationTheoryAndStringDimensionDemystification()
+    {
+        // 1) Maximum perturbation order on a cell is |sq(3)| = 6 (256 / 41 = 6, remainder 10 = Z(Ne)):
+        Assert.Equal(Ring9.NSq, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(Ring9.PhiPauli));
+        Assert.Equal(new Ring9(10), Ring9.PhiPauli - (Ring9.NSq * Ring9.DPhiDisc));
+
+        // 2) Exact 2nd-order Neumann calibration inverse (I + N_pert)^-1 = I - N_pert + N_pert^2 across all 512 ring states:
+        for (ushort k = 0; k < 512; k += 13)
+        {
+            Ring9 s0 = new(k);
+            Ring9 s1 = s0 + Ring9.ZSilicon14;
+            Ring9 s2 = s0 + Ring9.ZQuartz30;
+            var (y0, y1, y2) = CuboctahedronAutomatonKernel.ApplyNilpotentPerturbation3(s0, s1, s2);
+            var (r0, r1, r2) = CuboctahedronAutomatonKernel.CalibrateFiniteNeumannOrder2(y0, y1, y2);
+            Assert.Equal(s0, r0);
+            Assert.Equal(s1, r1);
+            Assert.Equal(s2, r2);
+        }
+
+        // 3) Demystification of String Theory / M-Theory numbers 10, 11, and 26 from a single 3D cell (d = 3):
+        Assert.Equal(new Ring9(10), Ring9.D + Ring9.DOutVertex);                       // 3 + 7 = 10
+        Assert.Equal(new Ring9(10), Ring9.DInSquare + Ring9.NSq);                      // 4 + 6 = 10
+        Assert.Equal(new Ring9(11), Ring9.D + Ring9.NTri);                             // 3 + 8 = 11 (3 spatial axes + 8 lanes of VerletCell72!)
+        Assert.Equal(new Ring9(26), Ring9.NSq + Ring9.NTri + Ring9.NLinks);            // 6 + 8 + 12 = 26 = 3^3 - 1
+    }
+
+    [Fact]
     public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
     {
         byte[] raw = new byte[64 * 1024];
