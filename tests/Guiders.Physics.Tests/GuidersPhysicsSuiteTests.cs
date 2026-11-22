@@ -977,6 +977,58 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Bus36(Ring9.Zero, Ring9.DInSquare, Ring9.Zero, Ring9.Zero), full587.PauliDense2048);
         Assert.Equal(new Bus36(new Ring9(64), new Ring9(10), Ring9.Zero, Ring9.Zero), full587.HiddenMicrostates5184);
         Assert.Equal(new Bus36(Ring9.Zero, new Ring9(16), Ring9.Zero, Ring9.Zero), full587.VacuumFloor8192);
+
+        // Verify 1025-Section Consecutive Two-Turn Verlet Spinor Period (1024 = 2 * 512)
+        // and Gate-Heisenberg Bezout Return Identity (1025 = 25 * 41 = 2 * 512 + 1) Closure on Bus36 (588..1025):
+        var full1025 = CuboctahedronAutomatonKernel.ComputeBench1025TwoTurnVerletBezoutConsecutiveClosureBus36();
+        Assert.Equal(new Bus36(new Ring9(76), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveBeamsMujoco588);
+        Assert.Equal(new Bus36(new Ring9(88), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveBeamsTin600);
+        Assert.Equal(new Bus36(new Ring9(89), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnColdLag601);
+        Assert.Equal(new Bus36(new Ring9(96), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.RingPlusGlucose608);
+        Assert.Equal(new Bus36(new Ring9(100), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.Bus36Fresnel612);
+        Assert.Equal(new Bus36(new Ring9(112), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveRunMinutes624);
+        Assert.Equal(new Bus36(Ring9.QSquare, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TenKp640);
+        Assert.Equal(new Bus36(Ring9.CollapsePhi, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.ReducedRedFerroin651Nm);
+        Assert.Equal(new Bus36(new Ring9(144), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.BalmerHAlpha656Nm);
+        Assert.Equal(new Bus36(new Ring9(154), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.EighteenTickArgon666Ns);
+        Assert.Equal(new Bus36(new Ring9(164), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.IronSquare676);
+        Assert.Equal(new Bus36(new Ring9(188), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.FourteenFacesTin700);
+        Assert.Equal(new Bus36(Ring9.QuartzSiO2Phi, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.RedGaAsLed718Nm);
+        Assert.Equal(new Bus36(new Ring9(208), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SpinorIdentity720Deg);
+        Assert.Equal(new Bus36(new Ring9(209), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SixteenthGauss721);
+        Assert.Equal(new Bus36(new Ring9(217), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.ModBitsCubed729);
+        Assert.Equal(new Bus36(new Ring9(228), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwentyTickFpga740Ns);
+        Assert.Equal(new Bus36(new Ring9(232), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.KleinJ744);
+        Assert.Equal(new Bus36(new Ring9(234), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnUart746);
+        Assert.Equal(new Bus36(new Ring9(248), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.AtmPressure760Torr);
+        Assert.Equal(new Bus36(Ring9.PhiPauli, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.ThreePauli768);
+        Assert.Equal(new Bus36(Ring9.IvSeed, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnIvSeed775);
+        Assert.Equal(new Bus36(new Ring9(273), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnIce785K);
+        Assert.Equal(new Bus36(new Ring9(289), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnFresnel801);
+        Assert.Equal(new Bus36(new Ring9(305), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SeventeenthGauss817);
+        Assert.Equal(new Bus36(new Ring9(311), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.AudibleFloor823Hz);
+        Assert.Equal(new Bus36(new Ring9(312), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.AudibleRounded824Hz);
+        Assert.Equal(new Bus36(new Ring9(320), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.GravityDipoleMult832);
+        Assert.Equal(new Bus36(new Ring9(321), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.StasisMultiplier833);
+        Assert.Equal(new Bus36(new Ring9(322), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SixCollapse834);
+        Assert.Equal(new Bus36(new Ring9(329), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.CopperSquare841);
+        Assert.Equal(new Bus36(new Ring9(352), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveVerlet864);
+        Assert.Equal(new Bus36(new Ring9(376), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwentyFourTick888Ns);
+        Assert.Equal(new Bus36(new Ring9(388), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.QuartzSquare900);
+        Assert.Equal(new Bus36(new Ring9(407), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.EighteenthGauss919);
+        Assert.Equal(new Bus36(new Ring9(413), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.MosfetGateDelay925Ns);
+        Assert.Equal(new Bus36(new Ring9(424), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.CausalConeT1Bits936);
+        Assert.Equal(new Bus36(new Ring9(441), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnBlueLed953);
+        Assert.Equal(new Bus36(new Ring9(448), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.FifteenKp960);
+        Assert.Equal(new Bus36(new Ring9(460), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveHeisenbergClass972);
+        Assert.Equal(new Bus36(new Ring9(487), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.MooreCube27Tick999Ns);
+        Assert.Equal(new Bus36(new Ring9(488), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.DecimalCube1000);
+        Assert.Equal(new Bus36(new Ring9(489), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.Scheherazade1001);
+        Assert.Equal(new Bus36(new Ring9(496), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.FourteenVerlet1008);
+        Assert.Equal(new Bus36(new Ring9(504), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.EightPeltier1016);
+        Assert.Equal(new Bus36(Ring9.MinusOne, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.StationaryFirstReturn1023);
+        Assert.Equal(new Bus36(Ring9.Zero, Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), full1025.TwoTurnVerlet1024);
+        Assert.Equal(new Bus36(Ring9.MuVac, Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), full1025.BezoutGateHeisenberg1025);
     }
 
     [Fact]
