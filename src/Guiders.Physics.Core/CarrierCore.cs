@@ -1207,6 +1207,51 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Bus36 SecondTurnStart513, Bus36 FourteenFaceScan518Ns, Bus36 DoubleAtp520, Bus36 SeamGate525, Bus36 DoubleIvSeed526, Bus36 GalliumFresnelRipple527, Bus36 TwelveMosfetStacks528, Bus36 SilanolSquare529, Bus36 CoreHeisenberg533, Bus36 TotalWallCap540Pf, Bus36 FerroinGate544, Bus36 FourteenthGauss547, Bus36 QuadAlphaFs548, Bus36 SecondTurnHeisenberg553, Bus36 QuadCollapse556, Bus36 EightVerletVdcSq576, Bus36 OxymyoglobinCenter579Nm, Bus36 SixGaussianHeme582, Bus36 EightRadiusVerlet584, Bus36 RadiusCoreStasis585, Bus36 BarrierCollapse587SectionCount, Bus36 ReducedRedFerroin651Nm, Bus36 RedGaAsLed718Nm, Bus36 SpinorFullIdentity720Deg, Bus36 StasisMultiplier833, Bus36 MosfetGateDelay925Ns, Bus36 TwoTurnVerlet1024, Bus36 BezoutGateHeisenberg1025, Bus36 SiliconBandgap1107Nm, Bus36 CavityLoad1536Ohm, Bus36 EsdTotalCap1800Pf, Bus36 PauliDense2048, Bus36 HiddenMicrostates5184, Bus36 VacuumFloor8192)
+        ComputeBench587BarrierCollapseMultiscaleClosureBus36()
+    {
+        Bus36 ring512 = Bus36.FromUnsignedRing9(Ring9.MinusOne) + Bus36.One;
+        Bus36 start513 = ring512 + Bus36.One;
+        Bus36 scan518 = ring512 + Bus36.FromUnsignedRing9(Ring9.NSq);
+        Bus36 atp520 = ring512 + Bus36.FromUnsignedRing9(Ring9.NTri);
+        Bus36 gate525 = ring512 + Bus36.FromUnsignedRing9(Ring9.NPhi);
+        Bus36 iv526 = ring512 + Bus36.FromUnsignedRing9(Ring9.ZSilicon14);
+        Bus36 ripple527 = ring512 + Bus36.FromUnsignedRing9(Ring9.D * Ring9.DOutEdge);
+        Bus36 mos528 = ring512 + Bus36.FromUnsignedRing9(Ring9.ZOxygen2_16);
+        Ring9 fresnel17 = Ring9.ModBits + Ring9.NTri;
+        Bus36 sil529 = ring512 + Bus36.FromUnsignedRing9(fresnel17);
+        Bus36 heis533 = ring512 + Bus36.FromUnsignedRing9(Ring9.SeamTicks);
+        Bus36 cap540 = ring512 + Bus36.FromUnsignedRing9(Ring9.DInSquare * Ring9.DOutVertex);
+        Bus36 fer544 = ring512 + Bus36.FromUnsignedRing9(Ring9.DInSquare * Ring9.NTri);
+        Bus36 gauss547 = ring512 + Bus36.FromUnsignedRing9(Ring9.DOutEdge * Ring9.DOutVertex);
+        Bus36 alpha548 = ring512 + Bus36.FromUnsignedRing9(Ring9.DInSquare * Ring9.ModBits);
+        Bus36 heis553 = ring512 + Bus36.FromUnsignedRing9(Ring9.DPhiDisc);
+        Bus36 col556 = ring512 + Bus36.FromUnsignedRing9(Ring9.ZSilicon14 + Ring9.ZQuartz30);
+        Bus36 ver576 = ring512 + Bus36.FromUnsignedRing9(Ring9.KP);
+        Bus36 oxy579 = ring512 + Bus36.FromUnsignedRing9(Ring9.KP + Ring9.D);
+        Bus36 heme582 = ring512 + Bus36.FromUnsignedRing9(Ring9.KP + Ring9.NSq);
+        Ring9 verlet72 = Ring9.NTri * Ring9.ModBits;
+        Bus36 rad584 = ring512 + Bus36.FromUnsignedRing9(verlet72);
+        Bus36 st585 = ring512 + Bus36.FromUnsignedRing9(Ring9.KP + Ring9.ModBits);
+        Bus36 col587 = ring512 + Bus36.FromUnsignedRing9(Ring9.D * Ring9.BezoutInv41);
+        Bus36 red651 = ring512 + Bus36.FromUnsignedRing9(Ring9.CollapsePhi);
+        Bus36 led718 = oxy579 + Bus36.FromUnsignedRing9(Ring9.CollapsePhi);
+        Bus36 spin720 = (Bus36.FromUnsignedRing9(verlet72) * (Ring9.NTri + Ring9.C0OverCSq));
+        Bus36 st833 = (Bus36.FromUnsignedRing9(Ring9.DOutVertex * Ring9.DOutVertex) * fresnel17);
+        Ring9 tick37 = (Ring9.DOutVertex * Ring9.DOutEdge) + Ring9.C0OverCSq;
+        Bus36 gate925 = (Bus36.FromUnsignedRing9(Ring9.BezoutInv41) * tick37);
+        Bus36 ver1024 = ring512 + ring512;
+        Bus36 bez1025 = ver1024 + Bus36.One;
+        Bus36 si1107 = (Bus36.FromUnsignedRing9(Ring9.D * Ring9.D * Ring9.D) * Ring9.DPhiDisc);
+        Bus36 cav1536 = (ring512 * Ring9.D);
+        Bus36 esd1800 = (Bus36.FromUnsignedRing9(Ring9.C0OverCSq * Ring9.ModBits) * (Ring9.DInSquare * Ring9.BezoutInv41));
+        Bus36 pauli2048 = (ver1024 + ver1024);
+        Bus36 hid5184 = (Bus36.FromUnsignedRing9(verlet72) * verlet72);
+        Bus36 eps8192 = Bus36.EpsDenom;
+        return (start513, scan518, atp520, gate525, iv526, ripple527, mos528, sil529, heis533, cap540, fer544, gauss547, alpha548, heis553, col556, ver576, oxy579, heme582, rad584, st585, col587, red651, led718, spin720, st833, gate925, ver1024, bez1025, si1107, cav1536, esd1800, pauli2048, hid5184, eps8192);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

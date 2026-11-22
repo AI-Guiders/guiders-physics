@@ -939,6 +939,44 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.MinusOne, full512.RingMax511);
         Assert.Equal(Ring9.Zero, full512.FullRing512SectionCount.L0);
         Assert.Equal(Ring9.MuVac, full512.FullRing512SectionCount.L1);
+
+        // Verify 587-Section Consecutive 587x Coherent Cuboctahedron Barrier Collapse (513..587 = 512 + 75)
+        // and Complete Multiscale Optical, Spinor, Electrical, Acoustic, and Crystal Hierarchy on Bus36:
+        var full587 = CuboctahedronAutomatonKernel.ComputeBench587BarrierCollapseMultiscaleClosureBus36();
+        Assert.Equal(new Bus36(Ring9.MuVac, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SecondTurnStart513);
+        Assert.Equal(new Bus36(Ring9.NSq, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.FourteenFaceScan518Ns);
+        Assert.Equal(new Bus36(Ring9.NTri, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.DoubleAtp520);
+        Assert.Equal(new Bus36(Ring9.NPhi, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SeamGate525);
+        Assert.Equal(new Bus36(Ring9.ZSilicon14, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.DoubleIvSeed526);
+        Assert.Equal(new Bus36(new Ring9(15), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.GalliumFresnelRipple527);
+        Assert.Equal(new Bus36(Ring9.ZOxygen2_16, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.TwelveMosfetStacks528);
+        Assert.Equal(new Bus36(new Ring9(17), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SilanolSquare529);
+        Assert.Equal(new Bus36(Ring9.SeamTicks, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.CoreHeisenberg533);
+        Assert.Equal(new Bus36(new Ring9(28), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.TotalWallCap540Pf);
+        Assert.Equal(new Bus36(new Ring9(32), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.FerroinGate544);
+        Assert.Equal(new Bus36(new Ring9(35), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.FourteenthGauss547);
+        Assert.Equal(new Bus36(new Ring9(36), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.QuadAlphaFs548);
+        Assert.Equal(new Bus36(Ring9.DPhiDisc, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SecondTurnHeisenberg553);
+        Assert.Equal(new Bus36(new Ring9(44), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.QuadCollapse556);
+        Assert.Equal(new Bus36(Ring9.KP, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.EightVerletVdcSq576);
+        Assert.Equal(new Bus36(new Ring9(67), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.OxymyoglobinCenter579Nm);
+        Assert.Equal(new Bus36(new Ring9(70), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SixGaussianHeme582);
+        Assert.Equal(new Bus36(new Ring9(72), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.EightRadiusVerlet584);
+        Assert.Equal(new Bus36(new Ring9(73), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.RadiusCoreStasis585);
+        Assert.Equal(new Bus36(new Ring9(75), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.BarrierCollapse587SectionCount);
+        Assert.Equal(new Bus36(Ring9.CollapsePhi, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.ReducedRedFerroin651Nm);
+        Assert.Equal(new Bus36(Ring9.QuartzSiO2Phi, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.RedGaAsLed718Nm);
+        Assert.Equal(new Bus36(new Ring9(208), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SpinorFullIdentity720Deg);
+        Assert.Equal(new Bus36(new Ring9(321), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.StasisMultiplier833);
+        Assert.Equal(new Bus36(new Ring9(413), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.MosfetGateDelay925Ns);
+        Assert.Equal(new Bus36(Ring9.Zero, Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), full587.TwoTurnVerlet1024);
+        Assert.Equal(new Bus36(Ring9.MuVac, Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), full587.BezoutGateHeisenberg1025);
+        Assert.Equal(new Bus36(new Ring9(83), Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), full587.SiliconBandgap1107Nm);
+        Assert.Equal(new Bus36(Ring9.Zero, Ring9.D, Ring9.Zero, Ring9.Zero), full587.CavityLoad1536Ohm);
+        Assert.Equal(new Bus36(new Ring9(264), Ring9.D, Ring9.Zero, Ring9.Zero), full587.EsdTotalCap1800Pf);
+        Assert.Equal(new Bus36(Ring9.Zero, Ring9.DInSquare, Ring9.Zero, Ring9.Zero), full587.PauliDense2048);
+        Assert.Equal(new Bus36(new Ring9(64), new Ring9(10), Ring9.Zero, Ring9.Zero), full587.HiddenMicrostates5184);
+        Assert.Equal(new Bus36(Ring9.Zero, new Ring9(16), Ring9.Zero, Ring9.Zero), full587.VacuumFloor8192);
     }
 
     [Fact]
