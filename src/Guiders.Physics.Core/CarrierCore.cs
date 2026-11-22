@@ -1136,8 +1136,8 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount, Ring9 StandardTemp298K, Ring9 TwelveGateSum300, Ring9 Mains312SectionCount, Ring9 Maillard341K, Ring9 Branching343SectionCount, Ring9 TwelveCopper348, Ring9 Phase352SectionCount, Ring9 Cutoff354K, Ring9 FullCircle360, Ring9 Boiling373K, Ring9 Euler384SectionCount)
-        ComputeBench384EulerPoleMultiscaleClosure9()
+    public static (Ring9 KokS4Flash164, Ring9 CoreSquare169, Ring9 Power180SectionCount, Ring9 IvSeedBezout183, Ring9 Gold197SectionCount, Ring9 FpgaCold228SectionCount, Ring9 Uart234SectionCount, Ring9 Pauli256SectionCount, Ring9 IvSeed263SectionCount, Ring9 IcePoint273K, Ring9 Fresnel289SectionCount, Ring9 StandardTemp298K, Ring9 TwelveGateSum300, Ring9 Mains312SectionCount, Ring9 Maillard341K, Ring9 Branching343SectionCount, Ring9 TwelveCopper348, Ring9 Phase352SectionCount, Ring9 Cutoff354K, Ring9 FullCircle360, Ring9 Boiling373K, Ring9 Euler384SectionCount, Ring9 WireDiameter400Um, Ring9 GaussianBezout417, Ring9 Soret418Nm, Ring9 TwelveBus432, Ring9 BlueLed441SectionCount)
+        ComputeBench441BlueLedMultiscaleClosure9()
     {
         Ring9 kok164 = Ring9.DInSquare * Ring9.DPhiDisc;
         Ring9 sq169 = Ring9.NPhi * Ring9.NPhi;
@@ -1164,7 +1164,13 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 circle360 = Ring9.C0OverCSq * sec180;
         Ring9 boil373 = pauli256 + (Ring9.ModBits * Ring9.NPhi);
         Ring9 euler384 = Ring9.D * Ring9.QSquare;
-        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289, temp298, gate300, mains312, maillard341, branch343, cu348, ph352, cutoff354, circle360, boil373, euler384);
+        Ring9 aa20 = Ring9.DInSquare * Ring9.DOutEdge;
+        Ring9 wire400 = aa20 * aa20;
+        Ring9 bezout417 = Ring9.D * Ring9.CollapsePhi;
+        Ring9 soret418 = bezout417 + Ring9.MuVac;
+        Ring9 bus432 = Ring9.NLinks * (Ring9.DInSquare * Ring9.ModBits);
+        Ring9 led441 = Ring9.SeamTicks * Ring9.SeamTicks;
+        return (kok164, sq169, sec180, inv183, au197, fpga228, uart234, pauli256, iv263, ice273, sec289, temp298, gate300, mains312, maillard341, branch343, cu348, ph352, cutoff354, circle360, boil373, euler384, wire400, bezout417, soret418, bus432, led441);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

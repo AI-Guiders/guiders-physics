@@ -861,45 +861,52 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(147), full147.ThreeShellBall147SectionCount);
         Assert.Equal(Ring9.D, full147.ThreeShellBall147SectionCount - full147.PalmiticLipid144);
 
-        // Verify 384-Section Consecutive Euler XY Chiral Fourth Pole 3*128 = 384 = 256+128, Phase 352, 7^3 = 343, 312 V, 289 & Seed IV(3) = 263 Multiscale Self-Closure
-        // (Every integer 1..384 consecutively mapped + 417..512..8192: Kok S4 flash 164 = 4*41 -> C_3(164) = -36,
+        // Verify 441-Section Consecutive Blue GaN LED 21^2 = 9*49 = 7*63 = 441 nm, Bezout 417, Euler 384, Phase 352, 7^3 = 343, 312 V, 289 & Seed IV(3) = 263 Multiscale Self-Closure
+        // (Every integer 1..441 consecutively mapped + 512..8192: Kok S4 flash 164 = 4*41 -> C_3(164) = -36,
         // core square 169 = 13^2 = 128 + 41, 180 = 12*15 W, IV Bezout 263*183 == 1 (mod 512),
         // Gold-197 Bezout 197*13 == 1 (mod 512), FPGA cold drive 228 = 12*19, UART divider 234 = 18*13,
         // Pauli mirror 256 = 2^8, Catalan seed IV(3) = 263 = 256 + 7, ice point 273 K = 21*13, Fresnel 289 = 17^2,
         // standard 298 K = 256 + 42, 12-channel gate sum 300 = 12*25, mains peak 312 = 24*13 V, Maillard 341 K = 68 + 273,
         // 7^3 = 343, 12-coil copper 348 = 12*29, oxidation phase 352 = 256 + 96 -> C_3(352) = -32,
-        // cutoff 354 K = 81 + 273, full circle 360 = 2*180, boiling water 373 K = 256 + 117, and Euler pole 384 = 3*128):
-        var full384 = CuboctahedronAutomatonKernel.ComputeBench384EulerPoleMultiscaleClosure9();
-        Assert.Equal(new Ring9(164), full384.KokS4Flash164);
-        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full384.KokS4Flash164.ProjC);
-        Assert.Equal(new Ring9(169), full384.CoreSquare169);
-        Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full384.CoreSquare169);
-        Assert.Equal(new Ring9(180), full384.Power180SectionCount);
-        Assert.Equal(new Ring9(183), full384.IvSeedBezout183);
-        Assert.Equal(Ring9.MuVac, full384.IvSeed263SectionCount * full384.IvSeedBezout183);
-        Assert.Equal(new Ring9(197), full384.Gold197SectionCount);
-        Assert.Equal(Ring9.MuVac, full384.Gold197SectionCount * Ring9.NPhi);
-        Assert.Equal(new Ring9(228), full384.FpgaCold228SectionCount);
-        Assert.Equal(new Ring9(234), full384.Uart234SectionCount);
-        Assert.Equal(Ring9.PhiPauli, full384.Pauli256SectionCount);
-        Assert.Equal(Ring9.IvSeed, full384.IvSeed263SectionCount);
-        Assert.Equal(Ring9.DOutVertex, full384.IvSeed263SectionCount - full384.Pauli256SectionCount);
-        Assert.Equal(new Ring9(273), full384.IcePoint273K);
-        Assert.Equal(new Ring9(289), full384.Fresnel289SectionCount);
-        Assert.Equal(new Ring9(298), full384.StandardTemp298K);
-        Assert.Equal(new Ring9(300), full384.TwelveGateSum300);
-        Assert.Equal(new Ring9(312), full384.Mains312SectionCount);
-        Assert.Equal(new Ring9(341), full384.Maillard341K);
-        Assert.Equal(new Ring9(343), full384.Branching343SectionCount);
-        Assert.Equal(new Ring9(348), full384.TwelveCopper348);
-        Assert.Equal(new Ring9(352), full384.Phase352SectionCount);
-        Assert.Equal(-(Ring9.DInSquare * Ring9.NTri), full384.Phase352SectionCount.ProjC);
-        Assert.Equal(new Ring9(354), full384.Cutoff354K);
-        Assert.Equal(new Ring9(360), full384.FullCircle360);
-        Assert.Equal(new Ring9(373), full384.Boiling373K);
-        Assert.Equal(new Ring9(384), full384.Euler384SectionCount);
-        Assert.Equal(Ring9.Zero, full384.Euler384SectionCount.ProjC);
-        Assert.Equal(-Ring9.QSquare, full384.Euler384SectionCount.ProjS);
+        // cutoff 354 K = 81 + 273, full circle 360 = 2*180, boiling water 373 K = 256 + 117, Euler pole 384 = 3*128,
+        // wire diameter 400 = 20^2 um, Gaussian Bezout 97*417 == 1 (mod 512), Soret 418 nm, 12-beam Bus36 432 = 12*36, and blue LED 441 = 21^2):
+        var full441 = CuboctahedronAutomatonKernel.ComputeBench441BlueLedMultiscaleClosure9();
+        Assert.Equal(new Ring9(164), full441.KokS4Flash164);
+        Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full441.KokS4Flash164.ProjC);
+        Assert.Equal(new Ring9(169), full441.CoreSquare169);
+        Assert.Equal(Ring9.QSquare + Ring9.DPhiDisc, full441.CoreSquare169);
+        Assert.Equal(new Ring9(180), full441.Power180SectionCount);
+        Assert.Equal(new Ring9(183), full441.IvSeedBezout183);
+        Assert.Equal(Ring9.MuVac, full441.IvSeed263SectionCount * full441.IvSeedBezout183);
+        Assert.Equal(new Ring9(197), full441.Gold197SectionCount);
+        Assert.Equal(Ring9.MuVac, full441.Gold197SectionCount * Ring9.NPhi);
+        Assert.Equal(new Ring9(228), full441.FpgaCold228SectionCount);
+        Assert.Equal(new Ring9(234), full441.Uart234SectionCount);
+        Assert.Equal(Ring9.PhiPauli, full441.Pauli256SectionCount);
+        Assert.Equal(Ring9.IvSeed, full441.IvSeed263SectionCount);
+        Assert.Equal(Ring9.DOutVertex, full441.IvSeed263SectionCount - full441.Pauli256SectionCount);
+        Assert.Equal(new Ring9(273), full441.IcePoint273K);
+        Assert.Equal(new Ring9(289), full441.Fresnel289SectionCount);
+        Assert.Equal(new Ring9(298), full441.StandardTemp298K);
+        Assert.Equal(new Ring9(300), full441.TwelveGateSum300);
+        Assert.Equal(new Ring9(312), full441.Mains312SectionCount);
+        Assert.Equal(new Ring9(341), full441.Maillard341K);
+        Assert.Equal(new Ring9(343), full441.Branching343SectionCount);
+        Assert.Equal(new Ring9(348), full441.TwelveCopper348);
+        Assert.Equal(new Ring9(352), full441.Phase352SectionCount);
+        Assert.Equal(-(Ring9.DInSquare * Ring9.NTri), full441.Phase352SectionCount.ProjC);
+        Assert.Equal(new Ring9(354), full441.Cutoff354K);
+        Assert.Equal(new Ring9(360), full441.FullCircle360);
+        Assert.Equal(new Ring9(373), full441.Boiling373K);
+        Assert.Equal(new Ring9(384), full441.Euler384SectionCount);
+        Assert.Equal(Ring9.Zero, full441.Euler384SectionCount.ProjC);
+        Assert.Equal(-Ring9.QSquare, full441.Euler384SectionCount.ProjS);
+        Assert.Equal(new Ring9(400), full441.WireDiameter400Um);
+        Assert.Equal(new Ring9(417), full441.GaussianBezout417);
+        Assert.Equal(Ring9.MuVac, Ring9.MHat * full441.GaussianBezout417);
+        Assert.Equal(new Ring9(418), full441.Soret418Nm);
+        Assert.Equal(new Ring9(432), full441.TwelveBus432);
+        Assert.Equal(new Ring9(441), full441.BlueLed441SectionCount);
     }
 
     [Fact]
