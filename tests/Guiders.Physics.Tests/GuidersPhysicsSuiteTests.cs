@@ -696,6 +696,19 @@ public class GuidersPhysicsSuiteTests
         Bus36 mixed4 = CuboctahedronAutomatonKernel.NilpotentTomographForward2xBus36(clean4);
         Bus36 rec4 = CuboctahedronAutomatonKernel.NilpotentTomographInverse24xBus36(mixed4);
         Assert.Equal(clean4, rec4);
+
+        // Verify Bus36 pre-flight 12-coil continuity impedance decomposition:
+        // D(N_active) = (1 + (N_active + 1)*64)*8192 == Bus36(0, 16, 2*(N_active + 1), 0)
+        // with L2(12) == 26 == Z(Fe) and single-coil drop in L2 == 2 == (c0/c)^2:
+        for (ushort nCoils = 0; nCoils <= 12; nCoils++)
+        {
+            Ring9 activeCount = new(nCoils);
+            Bus36 dBus = CuboctahedronAutomatonKernel.ComputePreflightCoilImpedanceBus36(activeCount);
+            Assert.Equal(Ring9.Zero, dBus.L0);
+            Assert.Equal(new Ring9(16), dBus.L1);
+            Assert.Equal(new Ring9((ushort)(2 * (nCoils + 1))), dBus.L2);
+            Assert.Equal(activeCount, CuboctahedronAutomatonKernel.RecoverActiveCoilsFromImpedanceBus36(dBus));
+        }
     }
 
     [Fact]

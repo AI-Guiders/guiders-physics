@@ -957,6 +957,18 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Bus36 ComputePreflightCoilImpedanceBus36(Ring9 activeCoilsCount) =>
+        new(
+            Ring9.Zero,
+            Ring9.C0OverCSq * Ring9.NTri,
+            Ring9.C0OverCSq * (activeCoilsCount + Ring9.MuVac),
+            Ring9.Zero);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 RecoverActiveCoilsFromImpedanceBus36(Bus36 domeImpedance) =>
+        new((ushort)((domeImpedance.L2.Bits9 / 2) - 1));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);
