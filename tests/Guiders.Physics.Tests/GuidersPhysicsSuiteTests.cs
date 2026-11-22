@@ -425,6 +425,16 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(10), Ring9.DInSquare + Ring9.NSq);                      // 4 + 6 = 10
         Assert.Equal(new Ring9(11), Ring9.D + Ring9.NTri);                             // 3 + 8 = 11 (3 spatial axes + 8 lanes of VerletCell72!)
         Assert.Equal(new Ring9(26), Ring9.NSq + Ring9.NTri + Ring9.NLinks);            // 6 + 8 + 12 = 26 = 3^3 - 1
+
+        // 4) Second Instrument Deep Dive: MOSFET Gate Stack (Si + SiO2 = 14 + 30 = 44), Copper Coil Lag (64 = KP),
+        //    and Glass-to-Air Acoustic/Dielectric Shell Match (Z(SiO2) = 30 == Z(N2) + Z(O2) = 14 + 16):
+        Ring9 zMosStack = Ring9.ZSilicon14 + Ring9.ZQuartz30;
+        Assert.Equal(new Ring9(44), zMosStack);
+        Ring9 lagCoil64 = Ring9.KP;
+        Ring9 lagGate25 = Ring9.BezoutInv41;
+        Ring9 fpgaDrive = Ring9.CollapsePhi + lagCoil64 + lagGate25;
+        Ring9 dishArrived = fpgaDrive - lagCoil64 - lagGate25;
+        Assert.Equal(Ring9.CollapsePhi, dishArrived);
     }
 
     [Fact]
