@@ -258,4 +258,20 @@ public sealed class KitchenBenchDigitalTwin
             recovered,
             uart0x08);
     }
+
+    public static (Ring9 UpdatedEstimatedLag, Ring9 NextTickArrivedDishPhase, Ring9 NextTickPhaseError)
+        StepClosedLoopPll9(Ring9 targetDishPhase, Ring9 currentEstimatedLag, Ring9 trueHardwareLagWithDrift)
+    {
+        Ring9 fpgaDrive0 = targetDishPhase + currentEstimatedLag;
+        Ring9 actualDish0 = fpgaDrive0 - trueHardwareLagWithDrift;
+        var cell0 = VerletCell72.Create(Ring9.MuVac, actualDish0, Ring9.Zero, Ring9.MuVac, Ring9.Zero, Ring9.Zero);
+        var sensors0 = CuboctahedronAutomatonKernel.ReadCellSensors(cell0);
+        Ring9 recDish0 = CuboctahedronAutomatonKernel.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
+            Ring9.MuVac, Ring9.MuVac, sensors0.AcousticWave, sensors0.ReactionCurrent);
+        Ring9 phaseErr0 = targetDishPhase - recDish0;
+        Ring9 nextEstLag = currentEstimatedLag + phaseErr0;
+        Ring9 nextFpgaDrive = targetDishPhase + nextEstLag;
+        Ring9 nextArrivedDish = nextFpgaDrive - trueHardwareLagWithDrift;
+        return (nextEstLag, nextArrivedDish, targetDishPhase - nextArrivedDish);
+    }
 }

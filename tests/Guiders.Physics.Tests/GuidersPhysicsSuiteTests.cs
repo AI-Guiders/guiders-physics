@@ -678,6 +678,17 @@ public class GuidersPhysicsSuiteTests
             Assert.Equal(snap.TargetDishPhase, snap.RecoveredTelemetryPhase);
             Assert.True(KitchenBenchDigitalTwin.VerifyUart16ByteFrameCrc(snap.Uart0x08CalibrationFrame16B));
         }
+
+        // Verify 1-tick closed-loop PLL disturbance cancellation across all 512/512 unmodeled lag shifts:
+        Ring9 initialEstLag = Ring9.KP + Ring9.BezoutInv41; // 64 + 25 = 89
+        for (ushort dist = 0; dist < 512; dist++)
+        {
+            Ring9 trueLag = new(dist);
+            var pll = KitchenBenchDigitalTwin.StepClosedLoopPll9(Ring9.CollapsePhi, initialEstLag, trueLag);
+            Assert.Equal(trueLag, pll.UpdatedEstimatedLag);
+            Assert.Equal(Ring9.CollapsePhi, pll.NextTickArrivedDishPhase);
+            Assert.Equal(Ring9.Zero, pll.NextTickPhaseError);
+        }
     }
 
     [Fact]
