@@ -1174,6 +1174,39 @@ public static unsafe class CuboctahedronAutomatonKernel
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (Ring9 TwelveTickScan444Ns, Ring9 SevenMeniscusKp448, Ring9 DoubleFpgaDrive456, Ring9 MooreFresnelSrf459, Ring9 Co2SeamQuartz462, Ring9 Bus36CoreUart468, Ring9 UpperHeisenberg471, Ring9 ThirteenTickCore481Ns, Ring9 Co2Square484, Ring9 RingMinusGate487, Ring9 RingMinusSeam491, Ring9 TwelveHeisenberg492, Ring9 ThirdPerfect496, Ring9 SchottkyEnd499, Ring9 TwistedPair500Mm, Ring9 QuadPeltierFocal508, Ring9 QuartzFresnelRg510, Ring9 RingMax511, Bus36 FullRing512SectionCount)
+        ComputeBench512FullRingMultiscaleClosure9()
+    {
+        Ring9 tick37 = (Ring9.DOutVertex * Ring9.DOutEdge) + Ring9.C0OverCSq;
+        Ring9 scan444 = Ring9.NLinks * tick37;
+        Ring9 kp448 = Ring9.DOutVertex * Ring9.KP;
+        Ring9 fpga228 = Ring9.CollapsePhi + Ring9.KP + Ring9.BezoutInv41;
+        Ring9 fpga456 = Ring9.C0OverCSq * fpga228;
+        Ring9 fresnel17 = Ring9.ModBits + Ring9.NTri;
+        Ring9 srf459 = (Ring9.D * (Ring9.D * Ring9.D)) * fresnel17;
+        Ring9 co2_22 = (Ring9.C0OverCSq * Ring9.ModBits) + Ring9.DInSquare;
+        Ring9 qz462 = co2_22 * Ring9.SeamTicks;
+        Ring9 uart468 = (Ring9.DInSquare * Ring9.ModBits) * Ring9.NPhi;
+        Ring9 heis471 = Ring9.Zero - Ring9.DPhiDisc;
+        Ring9 core481 = tick37 * Ring9.NPhi;
+        Ring9 co2Sq484 = co2_22 * co2_22;
+        Ring9 gate487 = Ring9.Zero - Ring9.BezoutInv41;
+        Ring9 seam491 = Ring9.Zero - Ring9.SeamTicks;
+        Ring9 heis492 = Ring9.NLinks * Ring9.DPhiDisc;
+        Ring9 ga31 = (Ring9.NTri * Ring9.DInSquare) - Ring9.MuVac;
+        Ring9 perf496 = (Ring9.C0OverCSq * Ring9.NTri) * ga31;
+        Ring9 schottky499 = Ring9.Zero - Ring9.NPhi;
+        Ring9 cable500 = ((Ring9.DInSquare * Ring9.DOutEdge) * Ring9.BezoutInv41);
+        Ring9 pelt127 = Ring9.QSquare - Ring9.MuVac;
+        Ring9 focal508 = Ring9.DInSquare * pelt127;
+        Ring9 sio2_30 = (Ring9.NPhi + Ring9.MuVac) + (Ring9.C0OverCSq * Ring9.NTri);
+        Ring9 rg510 = sio2_30 * fresnel17;
+        Ring9 max511 = Ring9.DOutVertex * (Ring9.KP + Ring9.ModBits);
+        Bus36 full512 = Bus36.FromUnsignedRing9(max511) + Bus36.One;
+        return (scan444, kp448, fpga456, srf459, qz462, uart468, heis471, core481, co2Sq484, gate487, seam491, heis492, perf496, schottky499, cable500, focal508, rg510, max511, full512);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static (Ring9 EdgeWave9, Ring9 BranchCarry9) EdgeDifferenceWithBranchCarry(Ring9 phiY, Ring9 phiX)
     {
         Bus36 yBus = Bus36.FromUnsignedRing9(phiY);

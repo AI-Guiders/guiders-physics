@@ -907,6 +907,38 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(new Ring9(418), full441.Soret418Nm);
         Assert.Equal(new Ring9(432), full441.TwelveBus432);
         Assert.Equal(new Ring9(441), full441.BlueLed441SectionCount);
+
+        // Verify 512-Section Full Phase-Ring N_ring(3) = 2^9 = 8^3 = 512 Consecutive Multiscale Self-Closure (Numbers 442..512:
+        // 12-tick scan 444 = 12*37 ns, 7*K_P = 448 = 512 - 64, double FPGA cold drive 456 = 2*228 = 12*38,
+        // coil SRF 459 = 27*17 = 512 - 53, quartz ring address 462 = 22*21 = 256 + 206, Bus36*N_phi = 468 = 2*234,
+        // upper Heisenberg boundary 471 = 512 - 41, 13-tick core duration 481 = 13*37 ns = 16^2 + 15^2,
+        // CO2 square 484 = 22^2 = 256 + 228, complementary gate delay 487 = 512 - 25, complementary seam 491 = 512 - 21,
+        // 12-beam Heisenberg sum 492 = 12*41 = 512 - 20, 3rd perfect number 496 = 16*31 = 512 - 16,
+        // Schottky decay end 499 = 256 + 243 = 512 - 13, 500 mm twisted pair = 20*25 = 512 - 12,
+        // 4*127 Peltier couples = 508 = 256 + 252, E24 gate resistor 510 = 30*17 = 512 - 2,
+        // Ring9.MinusOne = 511 = 7*73, and full ring period 512 = Bus36(0, 1, 0, 0)):
+        var full512 = CuboctahedronAutomatonKernel.ComputeBench512FullRingMultiscaleClosure9();
+        Assert.Equal(new Ring9(444), full512.TwelveTickScan444Ns);
+        Assert.Equal(new Ring9(448), full512.SevenMeniscusKp448);
+        Assert.Equal(new Ring9(456), full512.DoubleFpgaDrive456);
+        Assert.Equal(new Ring9(459), full512.MooreFresnelSrf459);
+        Assert.Equal(new Ring9(462), full512.Co2SeamQuartz462);
+        Assert.Equal(new Ring9(468), full512.Bus36CoreUart468);
+        Assert.Equal(new Ring9(471), full512.UpperHeisenberg471);
+        Assert.Equal(Ring9.MuVac, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(full512.UpperHeisenberg471));
+        Assert.Equal(new Ring9(481), full512.ThirteenTickCore481Ns);
+        Assert.Equal(new Ring9(484), full512.Co2Square484);
+        Assert.Equal(new Ring9(487), full512.RingMinusGate487);
+        Assert.Equal(new Ring9(491), full512.RingMinusSeam491);
+        Assert.Equal(new Ring9(492), full512.TwelveHeisenberg492);
+        Assert.Equal(new Ring9(496), full512.ThirdPerfect496);
+        Assert.Equal(new Ring9(499), full512.SchottkyEnd499);
+        Assert.Equal(new Ring9(500), full512.TwistedPair500Mm);
+        Assert.Equal(new Ring9(508), full512.QuadPeltierFocal508);
+        Assert.Equal(new Ring9(510), full512.QuartzFresnelRg510);
+        Assert.Equal(Ring9.MinusOne, full512.RingMax511);
+        Assert.Equal(Ring9.Zero, full512.FullRing512SectionCount.L0);
+        Assert.Equal(Ring9.MuVac, full512.FullRing512SectionCount.L1);
     }
 
     [Fact]
