@@ -292,4 +292,31 @@ public sealed class KitchenBenchDigitalTwin
         byte[] startFrame = PackUart16ByteFrame(0x02, recipeIndex, 1u, 0u);
         return (Ring9.CollapsePhi, Ring9.PhiPauli, startFrame);
     }
+
+    public static bool VerifyAcousticFixedPointAcross4OperatingModes9()
+    {
+        Ring9[] modes = [Ring9.Zero, Ring9.QSquare, Ring9.CollapsePhi, Ring9.PhiPauli];
+        for (int i = 0; i < modes.Length; i++)
+        {
+            Ring9 m = modes[i];
+            var cell = VerletCell72.Create(Ring9.MuVac, m, Ring9.Zero, Ring9.MuVac, Ring9.Zero, Ring9.Zero);
+            var s = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
+            if (s.AcousticWave != m)
+                return false;
+        }
+        return true;
+    }
+
+    public static bool Run3DPetriLatticeReversibleCycle9(ushort latticeSize = 4)
+    {
+        Ring9 size9 = new(latticeSize);
+        var carrier = new CuboctahedronCarrier(size9);
+        Ring9 c = new((ushort)(latticeSize / 2));
+        VerletCell72 initCenter = carrier[c, c, c];
+        carrier.StepForward();
+        carrier.StepForward();
+        carrier.StepBackward();
+        carrier.StepBackward();
+        return carrier.Tick == Ring9.Zero && carrier[c, c, c] == initCenter;
+    }
 }

@@ -746,6 +746,11 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.DPhiDisc, therm.Maillard68C - therm.WarmKitchen27C);
         Assert.Equal(Ring9.NPhi, therm.Cutoff81C - therm.Maillard68C);
         Assert.Equal(Ring9.NLinks * Ring9.NPhi, therm.Energy156Wh);
+
+        // Verify Acoustic Fixed-Point Identity Q_square - C_3(dphi) == dphi across all 4 operating modes {0, 128, 139, 256}
+        // and 3D Petri Dish CuboctahedronCarrier reversible step cycle:
+        Assert.True(KitchenBenchDigitalTwin.VerifyAcousticFixedPointAcross4OperatingModes9());
+        Assert.True(KitchenBenchDigitalTwin.Run3DPetriLatticeReversibleCycle9(4));
     }
 
     [Fact]
