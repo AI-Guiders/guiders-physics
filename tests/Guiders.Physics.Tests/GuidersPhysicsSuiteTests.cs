@@ -384,6 +384,14 @@ public class GuidersPhysicsSuiteTests
         // Class 4 (Aerospace Kutta-Joukowski vortex lift circulation = +1 & sub-threshold laminar boundary layer |40| -> n_E = 0):
         Assert.Equal(Ring9.MuVac, CuboctahedronAutomatonKernel.PlaquetteWinding9(Ring9.Zero, new(130), new(260), new(390)));
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(Ring9.DPhiDisc - Ring9.MuVac));
+
+        // Single-Instrument Deep Dive: Alpha-Quartz Piezoelectric Resonator ((SiO2)_3 = 90 = MHat - DOutVertex, SiO4 = 46 = minimal Pauli dense threshold):
+        Assert.Equal(Ring9.ZAlphaQuartz90, Ring9.D * Ring9.ZQuartz30);
+        Assert.Equal(Ring9.ZAlphaQuartz90, Ring9.MHat - Ring9.DOutVertex);
+        Ring9 zSiO4Tetra = Ring9.ZSilicon14 + (Ring9.DInSquare * Ring9.NTri); // 14 + 32 = 46
+        Assert.Equal(new Ring9(46), zSiO4Tetra);
+        Assert.Equal(Ring9.PhiPauli, CuboctahedronAutomatonKernel.PauliExclusionGate9(zSiO4Tetra, Ring9.Zero, zSiO4Tetra, Ring9.Zero, Ring9.MuVac));
+        Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.PauliExclusionGate9(zSiO4Tetra - Ring9.MuVac, Ring9.Zero, zSiO4Tetra - Ring9.MuVac, Ring9.Zero, Ring9.MuVac));
     }
 
     [Fact]
