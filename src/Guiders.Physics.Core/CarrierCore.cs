@@ -1142,7 +1142,7 @@ public static unsafe class CuboctahedronAutomatonKernel
         Ring9 kok164 = Ring9.DInSquare * Ring9.DPhiDisc;
         Ring9 sq169 = Ring9.NPhi * Ring9.NPhi;
         Ring9 sec180 = Ring9.NLinks * (Ring9.D * Ring9.DOutEdge);
-        Ring9 inv183 = Ring9.D * (Ring9.Kp - Ring9.D);
+        Ring9 inv183 = Ring9.D * (Ring9.KP - Ring9.D);
         Ring9 au197 = (Ring9.C0OverCSq * Ring9.MHat) + Ring9.D;
         Ring9 tau243 = Ring9.D * new Ring9(81);
         Ring9 atp260 = (Ring9.DInSquare * Ring9.DOutEdge) * Ring9.NPhi;
