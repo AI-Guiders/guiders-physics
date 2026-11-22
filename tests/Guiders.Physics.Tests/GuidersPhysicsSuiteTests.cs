@@ -385,13 +385,19 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.MuVac, CuboctahedronAutomatonKernel.PlaquetteWinding9(Ring9.Zero, new(130), new(260), new(390)));
         Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(Ring9.DPhiDisc - Ring9.MuVac));
 
-        // Single-Instrument Deep Dive: Alpha-Quartz Piezoelectric Resonator ((SiO2)_3 = 90 = MHat - DOutVertex, SiO4 = 46 = minimal Pauli dense threshold):
+        // Single-Instrument Deep Dive: Alpha-Quartz Piezoelectric Resonator ((SiO2)_3 = 90 = MHat - DOutVertex, SiO4 = 46 = minimal Pauli dense threshold)
+        // and Real Crystal Impurity Physics (AlO4 = 45 < 46 drops below Pauli threshold; proton passivation AlO4H = 45 + 1 = 46 restores exact Pauli threshold!):
         Assert.Equal(Ring9.ZAlphaQuartz90, Ring9.D * Ring9.ZQuartz30);
         Assert.Equal(Ring9.ZAlphaQuartz90, Ring9.MHat - Ring9.DOutVertex);
         Ring9 zSiO4Tetra = Ring9.ZSilicon14 + (Ring9.DInSquare * Ring9.NTri); // 14 + 32 = 46
+        Ring9 zAlO4Impurity = Ring9.NPhi + (Ring9.DInSquare * Ring9.NTri);    // 13 + 32 = 45
+        Ring9 zAlO4HPassivated = zAlO4Impurity + Ring9.MuVac;                 // 45 + 1 = 46 == Z(SiO4)!
         Assert.Equal(new Ring9(46), zSiO4Tetra);
+        Assert.Equal(new Ring9(45), zAlO4Impurity);
+        Assert.Equal(zSiO4Tetra, zAlO4HPassivated);
         Assert.Equal(Ring9.PhiPauli, CuboctahedronAutomatonKernel.PauliExclusionGate9(zSiO4Tetra, Ring9.Zero, zSiO4Tetra, Ring9.Zero, Ring9.MuVac));
-        Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.PauliExclusionGate9(zSiO4Tetra - Ring9.MuVac, Ring9.Zero, zSiO4Tetra - Ring9.MuVac, Ring9.Zero, Ring9.MuVac));
+        Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.PauliExclusionGate9(zAlO4Impurity, Ring9.Zero, zAlO4Impurity, Ring9.Zero, Ring9.MuVac));
+        Assert.Equal(Ring9.PhiPauli, CuboctahedronAutomatonKernel.PauliExclusionGate9(zAlO4HPassivated, Ring9.Zero, zAlO4HPassivated, Ring9.Zero, Ring9.MuVac));
     }
 
     [Fact]
