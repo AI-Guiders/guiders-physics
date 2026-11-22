@@ -769,6 +769,21 @@ public class GuidersPhysicsSuiteTests
         Assert.Equal(Ring9.KP, full36.Cysteine64);
         Assert.Equal(Ring9.QSquare - Ring9.C0OverCSq, full36.CystineDisulfide126);
         Assert.Equal(Ring9.DInSquare * Ring9.ModBits, full36.Section36Count);
+
+        // Verify 42-Section S_2(3) Full Closure (50/50 reactive balance C_3(64)=S_3(64)=64,
+        // Theobromine Z=94, Citric acid Z=100, Lactic acid Z=48, Calcium lactate Z=114,
+        // worst-case 5-source household noise = 8 < 41, margin = 33, total sections = 42 = S_2(3)):
+        Assert.Equal(Ring9.KP, Ring9.KP.ProjC);
+        Assert.Equal(Ring9.KP, Ring9.KP.ProjS);
+        Assert.Equal(Ring9.QSquare, Ring9.KP.ProjC + Ring9.KP.ProjS);
+        var full42 = CuboctahedronAutomatonKernel.ComputeBench42SecondSphereClosure9();
+        Assert.Equal(new Ring9(94), full42.TheobromineChocolate94);
+        Assert.Equal(new Ring9(100), full42.CitricAcidNectar100);
+        Assert.Equal(new Ring9(48), full42.LacticAcidMilk48);
+        Assert.Equal(new Ring9(114), full42.CalciumLactateCheese114);
+        Assert.Equal(Ring9.NTri, full42.WorstCaseNoise8);
+        Assert.Equal(new Ring9(33), full42.HeisenbergMargin33);
+        Assert.Equal(new Ring9(42), full42.FullSection42Count);
     }
 
     [Fact]
