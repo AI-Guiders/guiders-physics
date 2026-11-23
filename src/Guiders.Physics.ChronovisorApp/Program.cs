@@ -296,59 +296,41 @@ public sealed class ChronovisorForm : Form
     [STAThread]
     public static int Main(string[] args)
     {
-        if (args.Length >= 8 && args[0] == "--pv-diagnose")
+        // Universal domain-agnostic 12-neighbor cuboctahedron cell evaluator:
+        // Usage: --cell <mu0> <phi0> <mu1> <phi1> <nbMu> <nbPhi> <t>
+        if (args.Length >= 8 && args[0] == "--cell")
         {
-            Ring9 zAbs = new(ushort.Parse(args[1]));
-            Ring9 zOx = new(ushort.Parse(args[2]));
-            Ring9 zTet = new(ushort.Parse(args[3]));
-            Ring9 dOx = new(ushort.Parse(args[4]));
-            Ring9 dTc = new(ushort.Parse(args[5]));
-            Ring9 rayPhi = new(ushort.Parse(args[6]));
-            Ring9 o2Flag = new(ushort.Parse(args[7]));
+            Ring9 mu0 = new(ushort.Parse(args[1]));
+            Ring9 phi0 = new(ushort.Parse(args[2]));
+            Ring9 mu1 = new(ushort.Parse(args[3]));
+            Ring9 phi1 = new(ushort.Parse(args[4]));
+            Ring9 nbMu = new(ushort.Parse(args[5]));
+            Ring9 nbPhi = new(ushort.Parse(args[6]));
+            Ring9 t = new(ushort.Parse(args[7]));
 
-            var d = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-                zAbs, zOx, zTet, dOx, dTc, rayPhi, o2Flag);
+            Ring9 gate0 = CuboctahedronAutomatonKernel.Compute12NeighborGateFromCells(
+                mu0, phi0,
+                nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi,
+                nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi,
+                nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi, nbMu, nbPhi);
+            Ring9 pauli = CuboctahedronAutomatonKernel.PauliExclusionGate9(mu0, phi0, mu1, phi1, Ring9.MuVac);
+
+            var cell = VerletCell72.Create(mu0, phi0, phi0, mu1, phi1, phi1);
+            cell.Gate0 = gate0;
+            cell.Gate1 = gate0;
+            var stepped = cell.EvaluateClosedFormAtTick(t);
+            var sensors = CuboctahedronAutomatonKernel.ReadCellSensors(stepped);
 
             Console.WriteLine(
-                $"{{\"SaddleTotalZ\":{d.SaddleTotalZ9.Bits9}," +
-                $"\"SaddleCosLeakage\":{d.SaddleCosLeakage9.Bits9}," +
-                $"\"SaddleSinCurrent\":{d.SaddleSinFissionCurrent9.Bits9}," +
-                $"\"PauliBarrierGate\":{d.PauliBarrierGate9.Bits9}," +
-                $"\"AugerOverlapCos\":{d.AugerOverlapCos9.Bits9}," +
-                $"\"SingleRayPhonons\":{d.SingleRayPhononQuanta9.Bits9}," +
-                $"\"F1_PauliLeak\":{(d.F1_PauliLeakage_ZLt46 ? "true" : "false")}," +
-                $"\"F2_TunnelBlock\":{(d.F2_TunnelBlockade_OxideGt12TenthsNm ? "true" : "false")}," +
-                $"\"F3_AugerCollapse\":{(d.F3_AugerCollapse_NonOrthogonalRays ? "true" : "false")}," +
-                $"\"F4_AntiDip\":{(d.F4_AntiAbsorptionDip_AbsorberGt64Nm ? "true" : "false")}," +
-                $"\"F5_PhotoOx\":{(d.F5_PhotoOxidation_AmbientO2Light ? "true" : "false")}," +
-                $"\"F6_BandgapMismatch\":{(d.F6_BandgapMismatch_SaddleNot128 ? "true" : "false")}," +
-                $"\"Ready200Pct\":{(d.IsTarget200PercentReady ? "true" : "false")}}}");
-            return 0;
-        }
-
-        if (args.Length >= 7 && args[0] == "--planetary")
-        {
-            Ring9 atW = new(ushort.Parse(args[1]));
-            Ring9 btW = new(ushort.Parse(args[2]));
-            Ring9 ctW = new(ushort.Parse(args[3]));
-            Ring9 xS = new(ushort.Parse(args[4]));
-            Ring9 yS = new(ushort.Parse(args[5]));
-            Ring9 zS = new(ushort.Parse(args[6]));
-
-            var p = CuboctahedronAutomatonKernel.EvaluatePlanetaryDifferentialAndMasonStothersBus36(
-                atW, btW, ctW, xS, yS, zS);
-            int det4Nm = p.FourthPowerWronskianDetNmBus36.L0.Bits9 + 512 * p.FourthPowerWronskianDetNmBus36.L1.Bits9;
-            int siEdgeNm = p.SiliconEdgeNm1107Bus36.L0.Bits9 + 512 * p.SiliconEdgeNm1107Bus36.L1.Bits9;
-
-            Console.WriteLine(
-                $"{{\"RadiusNormSq\":{p.RadiusNormSq9.Bits9}," +
-                $"\"GearSlipSab\":{p.GearSlipSab9.Bits9}," +
-                $"\"HeisenbergMab\":{p.HeisenbergSumMab9.Bits9}," +
-                $"\"CrossMca\":{p.QuartzSiliconCrossMca9.Bits9}," +
-                $"\"AdjugateTraceMeV\":{p.AdjugateTraceMeV9.Bits9}," +
-                $"\"WronskianDet4Nm\":{det4Nm}," +
-                $"\"SiliconEdgeNm\":{siEdgeNm}," +
-                $"\"AbsorptionMarginNm\":{p.AbsorptionMarginNm225.Bits9}}}");
+                $"{{\"Gate0\":{gate0.Bits9}," +
+                $"\"PauliGate\":{pauli.Bits9}," +
+                $"\"Phi0AtT\":{stepped.Phi0Curr.Bits9}," +
+                $"\"ProjC\":{stepped.Phi0Curr.ProjC.Bits9}," +
+                $"\"ProjS\":{stepped.Phi0Curr.ProjS.Bits9}," +
+                $"\"ShellZ\":{sensors.OlfactoryShellZ.Bits9}," +
+                $"\"AcousticWave\":{sensors.AcousticWave.Bits9}," +
+                $"\"ReactionCurrent\":{sensors.ReactionCurrent.Bits9}," +
+                $"\"EnergyQuantaNe\":{sensors.EnergyQuantaNe.Bits9}}}");
             return 0;
         }
 

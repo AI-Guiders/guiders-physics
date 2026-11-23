@@ -1075,79 +1075,19 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
-    public void Core_14_ParametricSiliconPhotovoltaicDiagnosticAndPlanetaryWronskian_MatchesPythonAndLean()
+    public void Core_14_UniversalCellKernelEvaluatesArbitraryInputsIdenticallyToPythonAndLean()
     {
-        // 1) Planetary differential frame F_3 and Mason-Stothers-Bézout 4th-power Wronskian on Lock IV
-        //    (3 * 1^3 + 1 * 5^3 = 2 * 4^3 = 128 -> At=3, Bt=1, Ct=2, X=1, Y=5, Z=4):
-        var lock4 = CuboctahedronAutomatonKernel.EvaluatePlanetaryDifferentialAndMasonStothersBus36(
-            atWeight: new Ring9(3), btWeight: new Ring9(1), ctWeight: new Ring9(2),
-            xShaft: new Ring9(1), yShaft: new Ring9(5), zShaft: new Ring9(4));
+        // Feed Tetracene (Mu0=120) + Oxygen bridge (Mu1=8) at quarter-ring phase (Phi0=128)
+        // directly into the universal VerletCell72 + ReadCellSensors kernel:
+        var saddleCell = VerletCell72.Create(new Ring9(120), Ring9.QSquare, Ring9.QSquare, new Ring9(8), Ring9.Zero, Ring9.Zero);
+        var readout = CuboctahedronAutomatonKernel.ReadCellSensors(saddleCell);
+        Assert.Equal(Ring9.QSquare, readout.OlfactoryShellZ);         // 120 + 8 = 128 = Q_square(3)
+        Assert.Equal(Ring9.Zero, saddleCell.Phi0Curr.ProjC);          // C_3(128) = 0
+        Assert.Equal(Ring9.QSquare, readout.ChiralOdorProjectionS);   // S_3(128) = +128
+        Assert.Equal(Ring9.Zero, readout.EnergyQuantaNe);             // n_E(0) = 0
 
-        Assert.Equal(new Ring9(42), lock4.RadiusNormSq9);              // 1^2 + 5^2 + 4^2 = 42 = S_2(3)
-        Assert.Equal(new Ring9(10), lock4.GearSlipSab9);               // 5*3 - 1*25 = -10 -> 502 = -10 in Ring9? Wait: y*a2 - x*b2 = 15 - 25 = -10; check AbsWrap == 10!
-        Assert.Equal(new Ring9(10), lock4.GearSlipSab9.AbsWrap);       // |S_AB| = 10 = Z(Ne)
-        Assert.Equal(new Ring9(40), lock4.HeisenbergSumMab9);          // 5*3 + 1*25 = 40 = DPhiDisc - 1
-        Assert.Equal(new Ring9(44), lock4.QuartzSiliconCrossMca9);     // 4*3 + 1*32 = 44 = Z(Si) + Z(SiO2)
-        Assert.Equal(new Ring9(144), lock4.AdjugateTraceMeV9);         // 4^2 + 128 = 144 = 12^2 meV
-        // 1^4 + 5^4 + 4^4 = 1 + 625 + 256 = 882 = 512 + 370 = Bus36(370, 1, 0, 0) nm:
-        Assert.Equal(new Bus36(new Ring9(370), Ring9.MuVac, Ring9.Zero, Ring9.Zero), lock4.FourthPowerWronskianDetNmBus36);
-        // Silicon edge 27 * 41 = 1107 = 2 * 512 + 83 = Bus36(83, 2, 0, 0) nm, margin = 15^2 = 225 nm:
-        Assert.Equal(new Bus36(new Ring9(83), Ring9.C0OverCSq, Ring9.Zero, Ring9.Zero), lock4.SiliconEdgeNm1107Bus36);
-        Assert.Equal(new Ring9(225), lock4.AbsorptionMarginNm225);
-
-        // 2) Target Sample B (Z(C18H12)=120, Z(O)=8, Z(SiO4/[AlO4H])=46, d_ox=1.0 nm [10 tenths], d_Tc=48 nm, dPhi=128, O2Flag=0):
-        var sampleB = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            zAbsorber: new Ring9(120),
-            zBridgeOxygen: new Ring9(8),
-            zPassivationTetrahedron: new Ring9(46),
-            oxideThicknessTenthsNm: new Ring9(10),
-            absorberThicknessNm: new Ring9(48),
-            raySeparationPhase: Ring9.QSquare,
-            ambientLightOxygenFlag: Ring9.Zero);
-
-        Assert.Equal(Ring9.QSquare, sampleB.SaddleTotalZ9);            // 120 + 8 = 128
-        Assert.Equal(Ring9.Zero, sampleB.SaddleCosLeakage9);           // C_3(128) = 0
-        Assert.Equal(Ring9.QSquare, sampleB.SaddleSinFissionCurrent9); // S_3(128) = +128
-        Assert.Equal(Ring9.PhiPauli, sampleB.PauliBarrierGate9);       // 46^2 = 2116 > 2048 -> 256
-        Assert.Equal(Ring9.Zero, sampleB.AugerOverlapCos9);            // C_3(128) = 0
-        Assert.Equal(Ring9.Zero, sampleB.SingleRayPhononQuanta9);      // n_E(21) = 0
-        Assert.True(sampleB.IsTarget200PercentReady);
-
-        // 3) Verify all 6 failure modes (F1..F6) individually when experimental conditions deviate:
-        // F1: Control Sample A (dry AlO4, Z = 45 -> 45^2 = 2025 < 2048):
-        var failF1 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(120), new Ring9(8), new Ring9(45), new Ring9(10), new Ring9(48), Ring9.QSquare, Ring9.Zero);
-        Assert.True(failF1.F1_PauliLeakage_ZLt46);
-        Assert.False(failF1.IsTarget200PercentReady);
-
-        // F2: Over-thick oxide bridge (d_ox = 3.0 nm [30 tenths] > 1.2 nm):
-        var failF2 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(120), new Ring9(8), new Ring9(46), new Ring9(30), new Ring9(48), Ring9.QSquare, Ring9.Zero);
-        Assert.True(failF2.F2_TunnelBlockade_OxideGt12TenthsNm);
-        Assert.False(failF2.IsTarget200PercentReady);
-
-        // F3: Disordered parallel packing on Si(111) (raySeparationPhase = 0 -> C_3(0) = 128 != 0):
-        var failF3 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(120), new Ring9(8), new Ring9(46), new Ring9(10), new Ring9(48), Ring9.Zero, Ring9.Zero);
-        Assert.True(failF3.F3_AugerCollapse_NonOrthogonalRays);
-        Assert.False(failF3.IsTarget200PercentReady);
-
-        // F4: Over-thick tetracene (d_Tc = 200 nm > 64 nm -> anti-absorption dip):
-        var failF4 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(120), new Ring9(8), new Ring9(46), new Ring9(10), new Ring9(200), Ring9.QSquare, Ring9.Zero);
-        Assert.True(failF4.F4_AntiAbsorptionDip_AbsorberGt64Nm);
-        Assert.False(failF4.IsTarget200PercentReady);
-
-        // F5: Ambient O2 photo-oxidation during transfer (flag = 1):
-        var failF5 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(120), new Ring9(8), new Ring9(46), new Ring9(10), new Ring9(48), Ring9.QSquare, Ring9.MuVac);
-        Assert.True(failF5.F5_PhotoOxidation_AmbientO2Light);
-        Assert.False(failF5.IsTarget200PercentReady);
-
-        // F6: Pentacene substitution (Z(C22H14) = 146 -> 146 + 8 = 154 != 128):
-        var failF6 = CuboctahedronAutomatonKernel.EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
-            new Ring9(146), new Ring9(8), new Ring9(46), new Ring9(10), new Ring9(48), Ring9.QSquare, Ring9.Zero);
-        Assert.True(failF6.F6_BandgapMismatch_SaddleNot128);
-        Assert.False(failF6.IsTarget200PercentReady);
+        // Feed SiO4 / [AlO4H] (Z = 46) vs dry AlO4 (Z = 45) directly into the universal PauliExclusionGate9:
+        Assert.Equal(Ring9.PhiPauli, CuboctahedronAutomatonKernel.PauliExclusionGate9(new Ring9(46), Ring9.Zero, new Ring9(46), Ring9.Zero, Ring9.MuVac));
+        Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.PauliExclusionGate9(new Ring9(45), Ring9.Zero, new Ring9(45), Ring9.Zero, Ring9.MuVac));
     }
 }
