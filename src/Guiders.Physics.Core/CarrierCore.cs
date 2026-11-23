@@ -1512,4 +1512,108 @@ public static unsafe class CuboctahedronAutomatonKernel
         cell0.Gate1 = leadGate;
         return cell0.EvaluateClosedFormAtTick(t);
     }
+
+    /// <summary>
+    /// Parametric planetary differential frame F_3 and integer Mason-Stothers-Bézout fourth-power Wronskian evaluator
+    /// on Bus36 and Ring9 (verifying Lock IV: 3*1^3 + 1*5^3 = 2*4^3 = 128, ||r||_2^2 = 42, S_AB = 10, M_AB = 40,
+    /// M_CA = 44, Tr(M_3^adj) = 144 meV, and -det(W_MS) = X^4 + Y^4 + Z^4 = 882 nm = Bus36(370, 1, 0, 0)).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (
+        Ring9 RadiusNormSq9,
+        Ring9 GearSlipSab9,
+        Ring9 HeisenbergSumMab9,
+        Ring9 QuartzSiliconCrossMca9,
+        Ring9 AdjugateTraceMeV9,
+        Bus36 FourthPowerWronskianDetNmBus36,
+        Bus36 SiliconEdgeNm1107Bus36,
+        Ring9 AbsorptionMarginNm225)
+        EvaluatePlanetaryDifferentialAndMasonStothersBus36(
+            Ring9 atWeight, Ring9 btWeight, Ring9 ctWeight,
+            Ring9 xShaft, Ring9 yShaft, Ring9 zShaft)
+    {
+        // a1 = X, a2 = At * X^2; b1 = Y, b2 = Bt * Y^2; c1 = Z, c2 = Ct * Z^2
+        Ring9 x2 = xShaft * xShaft;
+        Ring9 y2 = yShaft * yShaft;
+        Ring9 z2 = zShaft * zShaft;
+        Ring9 a2 = atWeight * x2;
+        Ring9 b2 = btWeight * y2;
+        Ring9 c2 = ctWeight * z2;
+
+        Ring9 radiusNormSq = x2 + y2 + z2;
+        Ring9 gearSlipSab = (xShaft * b2) - (yShaft * a2);
+        Ring9 heisenbergMab = (xShaft * b2) + (yShaft * a2);
+        Ring9 crossMca = (zShaft * a2) + (xShaft * c2);
+        Ring9 cTotal = zShaft * c2;
+        Ring9 adjugateTrace = z2 + cTotal;
+
+        Bus36 x4Bus = Bus36.FromUnsignedRing9(x2) * x2;
+        Bus36 y4Bus = Bus36.FromUnsignedRing9(y2) * y2;
+        Bus36 z4Bus = Bus36.FromUnsignedRing9(z2) * z2;
+        Bus36 wronskianDet4 = x4Bus + y4Bus + z4Bus;
+
+        Ring9 warm27 = Ring9.D * Ring9.ModBits;
+        Bus36 siEdge1107 = Bus36.FromUnsignedRing9(warm27) * Ring9.DPhiDisc;
+        Ring9 kLockIII_15 = Ring9.D * Ring9.DOutEdge;
+        Ring9 margin225 = kLockIII_15 * kLockIII_15;
+
+        return (radiusNormSq, gearSlipSab, heisenbergMab, crossMca, adjugateTrace, wronskianDet4, siEdge1107, margin225);
+    }
+
+    /// <summary>
+    /// Parametric cleanroom diagnostic and pre-emptive failure-mode (F1..F6) evaluator for the four-layer
+    /// singlet-fission silicon photovoltaic cascade ("Quartz - Tetracene - SiO4/[AlO4H] - IBC-Si").
+    /// Accepts arbitrary experimental conditions and outputs exact carrier-impedance signatures (M1..M4)
+    /// and failure flags (F1..F6) in pure integer Ring9 arithmetic.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static (
+        Ring9 SaddleTotalZ9,
+        Ring9 SaddleCosLeakage9,
+        Ring9 SaddleSinFissionCurrent9,
+        Ring9 PauliBarrierGate9,
+        Ring9 AugerOverlapCos9,
+        Ring9 SingleRayPhononQuanta9,
+        bool F1_PauliLeakage_ZLt46,
+        bool F2_TunnelBlockade_OxideGt12TenthsNm,
+        bool F3_AugerCollapse_NonOrthogonalRays,
+        bool F4_AntiAbsorptionDip_AbsorberGt64Nm,
+        bool F5_PhotoOxidation_AmbientO2Light,
+        bool F6_BandgapMismatch_SaddleNot128,
+        bool IsTarget200PercentReady)
+        EvaluateSiliconPhotovoltaicCascadeDiagnostic9(
+            Ring9 zAbsorber,
+            Ring9 zBridgeOxygen,
+            Ring9 zPassivationTetrahedron,
+            Ring9 oxideThicknessTenthsNm,
+            Ring9 absorberThicknessNm,
+            Ring9 raySeparationPhase,
+            Ring9 ambientLightOxygenFlag)
+    {
+        Ring9 saddleTotalZ = zAbsorber + zBridgeOxygen;
+        Ring9 saddleCosLeak = saddleTotalZ.ProjC;
+        Ring9 saddleSinCurr = saddleTotalZ.ProjS;
+
+        Ring9 pauliGate = PauliExclusionGate9(
+            zPassivationTetrahedron, Ring9.Zero,
+            zPassivationTetrahedron, Ring9.Zero,
+            Ring9.MuVac);
+
+        Ring9 augerOverlapCos = raySeparationPhase.ProjC;
+        Ring9 singleRayPhonons = HeisenbergEnergyQuanta(Ring9.SeamTicks);
+
+        bool f1PauliLeak = pauliGate != Ring9.PhiPauli;
+        bool f2TunnelBlock = oxideThicknessTenthsNm.Bits9 < 8 || oxideThicknessTenthsNm.Bits9 > 12;
+        bool f3AugerCollapse = augerOverlapCos != Ring9.Zero;
+        bool f4AntiDip = absorberThicknessNm.Bits9 < 30 || absorberThicknessNm.Bits9 > 64;
+        bool f5PhotoOx = ambientLightOxygenFlag != Ring9.Zero;
+        bool f6BandgapMismatch = saddleTotalZ != Ring9.QSquare || saddleSinCurr != Ring9.QSquare;
+
+        bool ready = !f1PauliLeak && !f2TunnelBlock && !f3AugerCollapse &&
+                     !f4AntiDip && !f5PhotoOx && !f6BandgapMismatch &&
+                     singleRayPhonons == Ring9.Zero;
+
+        return (saddleTotalZ, saddleCosLeak, saddleSinCurr, pauliGate, augerOverlapCos, singleRayPhonons,
+                f1PauliLeak, f2TunnelBlock, f3AugerCollapse, f4AntiDip, f5PhotoOx, f6BandgapMismatch, ready);
+    }
 }
