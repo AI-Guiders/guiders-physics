@@ -7,8 +7,9 @@ using Xunit;
 
 namespace Guiders.Physics.Tests;
 
-public class GuidersPhysicsSuiteTests
+public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper output)
 {
+    private readonly Xunit.Abstractions.ITestOutputHelper _output = output;
     [Fact]
     public unsafe void Core_1_PassportAnd72BitLayout_MatchesLean4AndPython()
     {
@@ -1138,5 +1139,212 @@ public class GuidersPhysicsSuiteTests
         // Feed SiO4 / [AlO4H] (Z = 46) vs dry AlO4 (Z = 45) directly into the universal PauliExclusionGate9:
         Assert.Equal(Ring9.PhiPauli, CuboctahedronAutomatonKernel.PauliExclusionGate9(new Ring9(46), Ring9.Zero, new Ring9(46), Ring9.Zero, Ring9.MuVac));
         Assert.Equal(Ring9.Zero,     CuboctahedronAutomatonKernel.PauliExclusionGate9(new Ring9(45), Ring9.Zero, new Ring9(45), Ring9.Zero, Ring9.MuVac));
+    }
+
+    [Fact]
+    public void MediaCodec_TearsOfSteel14GbDcp_VideoAndAudioComparison_BitExactQualityAndSoundPreserved()
+    {
+        const string tosPicPath = @"C:\Users\dkara\Downloads\ToS_4k_DCP\tos_version_05\tos_picture.mxf";
+        const string tosSndPath = @"C:\Users\dkara\Downloads\ToS_4k_DCP\tos_version_05\tos_sound.mxf";
+        const string ffmpegExe  = @"C:\Users\dkara\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe";
+
+        Assert.True(System.IO.File.Exists(tosPicPath), $"Missing 14 GB Tears of Steel picture MXF: {tosPicPath}");
+        Assert.True(System.IO.File.Exists(tosSndPath), $"Missing Tears of Steel sound MXF: {tosSndPath}");
+        Assert.True(System.IO.File.Exists(ffmpegExe),  $"Missing ffmpeg executable: {ffmpegExe}");
+
+        const int width = 640;
+        const int height = 360;
+        const int fps = 24;
+        const int durationSec = 5;
+        const int frameCount = fps * durationSec; // 120 frames (5.0 seconds at 00:02:00)
+        const int frameBytes = width * height * 3;
+        const int totalVideoBytes = frameCount * frameBytes; // 82,944,000 bytes (~82.94 MB)
+        const int sampleRate = 48000;
+        const int nStereoSamples = sampleRate * durationSec; // 240,000 stereo pairs (480,000 int16 samples = 960,000 bytes)
+
+        static byte[] RunFfmpegRawPipe(string exe, string arguments, int expectedBytes)
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(exe, arguments)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi)!;
+            byte[] buf = new byte[expectedBytes];
+            int offset = 0;
+            var stdout = proc.StandardOutput.BaseStream;
+            while (offset < expectedBytes)
+            {
+                int read = stdout.Read(buf, offset, expectedBytes - offset);
+                if (read <= 0) break;
+                offset += read;
+            }
+            proc.WaitForExit();
+            Assert.Equal(expectedBytes, offset);
+            return buf;
+        }
+
+        // 1. Decode 5 seconds (120 frames, 640x360 RGB24) from 14 GB Tears of Steel 4K DCP picture MXF at 00:02:00
+        byte[] origVideoRgb24 = RunFfmpegRawPipe(
+            ffmpegExe,
+            $"-ss 00:02:00 -i \"{tosPicPath}\" -vf scale={width}:{height} -vframes {frameCount} -f rawvideo -pix_fmt rgb24 -",
+            totalVideoBytes);
+
+        // 2. Decode 5 seconds (48 kHz 16-bit Stereo PCM) from Tears of Steel studio sound MXF at 00:02:00
+        byte[] origAudioBytes = RunFfmpegRawPipe(
+            ffmpegExe,
+            $"-ss 00:02:00 -i \"{tosSndPath}\" -t {durationSec} -ac 2 -ar {sampleRate} -f s16le -",
+            nStereoSamples * 4);
+
+        short[] origAudioPcm16 = new short[nStereoSamples * 2];
+        System.Buffer.BlockCopy(origAudioBytes, 0, origAudioPcm16, 0, origAudioBytes.Length);
+
+        // Verify original sound is non-silent (active speech + soundtrack at 00:02:00)
+        long origAudioEnergy = 0;
+        int maxOrigSample = 0;
+        for (int i = 0; i < origAudioPcm16.Length; i++)
+        {
+            int a = System.Math.Abs((int)origAudioPcm16[i]);
+            origAudioEnergy += (long)a * a;
+            if (a > maxOrigSample) maxOrigSample = a;
+        }
+        Assert.True(maxOrigSample > 500, $"Expected active audio in Tears of Steel at 00:02:00, peak={maxOrigSample}");
+
+        // 3. Encode & Decode Multiplexed Video + Audio Container purely in .NET 11 via CuboctMediaCodec
+        var swEncode = System.Diagnostics.Stopwatch.StartNew();
+        byte[] cuboctContainer = CuboctMediaCodec.EncodeMultiplexedMediaContainer(
+            origVideoRgb24, frameCount, width, height, origAudioPcm16, sampleRate);
+        swEncode.Stop();
+
+        var swDecode = System.Diagnostics.Stopwatch.StartNew();
+        var decoded = CuboctMediaCodec.DecodeMultiplexedMediaContainer(cuboctContainer);
+        swDecode.Stop();
+
+        // 4. Measure standard .NET GZipStream(CompressionLevel.Optimal) on the exact same Video + Audio payload
+        var swGzip = System.Diagnostics.Stopwatch.StartNew();
+        byte[] gzipVideoBytes;
+        using (var msV = new System.IO.MemoryStream())
+        {
+            using (var gzV = new System.IO.Compression.GZipStream(msV, System.IO.Compression.CompressionLevel.Optimal, true))
+            {
+                gzV.Write(origVideoRgb24);
+                gzV.Write(origAudioBytes);
+            }
+            gzipVideoBytes = msV.ToArray();
+        }
+        swGzip.Stop();
+
+        // 5. Verify 100% Bit-Exact Video Quality (0 pixel difference, SHA-256 match, PSNR = Infinity)
+        byte[] shaVideoOrig = SHA256.HashData(origVideoRgb24);
+        byte[] shaVideoDec  = SHA256.HashData(decoded.Rgb24Frames);
+        Assert.Equal(shaVideoOrig, shaVideoDec);
+
+        int maxPixelDiff = 0;
+        for (int i = 0; i < origVideoRgb24.Length; i++)
+        {
+            int d = System.Math.Abs(origVideoRgb24[i] - decoded.Rgb24Frames[i]);
+            if (d > maxPixelDiff) maxPixelDiff = d;
+        }
+        Assert.Equal(0, maxPixelDiff);
+
+        // 6. Verify 100% Bit-Exact Audio Preservation (Sound did NOT disappear or degrade: 0 sample difference, SHA-256 match)
+        Assert.Equal(origAudioPcm16.Length, decoded.StereoPcm16.Length);
+        byte[] decAudioBytes = new byte[origAudioBytes.Length];
+        System.Buffer.BlockCopy(decoded.StereoPcm16, 0, decAudioBytes, 0, decAudioBytes.Length);
+        Assert.Equal(SHA256.HashData(origAudioBytes), SHA256.HashData(decAudioBytes));
+
+        int maxAudioDiff = 0;
+        long decAudioEnergy = 0;
+        for (int i = 0; i < origAudioPcm16.Length; i++)
+        {
+            int d = System.Math.Abs(origAudioPcm16[i] - decoded.StereoPcm16[i]);
+            if (d > maxAudioDiff) maxAudioDiff = d;
+            int a = System.Math.Abs((int)decoded.StereoPcm16[i]);
+            decAudioEnergy += (long)a * a;
+        }
+        Assert.Equal(0, maxAudioDiff);
+        Assert.Equal(origAudioEnergy, decAudioEnergy);
+
+        // 7. Also evaluate Two-Point Keyframe Interpolation quality (Stride N = 2 and Stride N = 4) on Tears of Steel frames
+        double totalHeisPctStride2 = 0.0;
+        double mseStride2 = 0.0;
+        int interpCount2 = 0;
+        for (int f = 0; f + 2 < frameCount; f += 2)
+        {
+            var kf0 = origVideoRgb24.AsSpan(f * frameBytes, frameBytes);
+            var gt1 = origVideoRgb24.AsSpan((f + 1) * frameBytes, frameBytes);
+            var kf2 = origVideoRgb24.AsSpan((f + 2) * frameBytes, frameBytes);
+            var (rec1, pct41) = CuboctMediaCodec.InterpolateTwoPointKeyframe(kf0, kf2, gt1, 1, 2);
+            totalHeisPctStride2 += pct41;
+            long sqErr = 0;
+            for (int idx = 0; idx < frameBytes; idx++)
+            {
+                int e = gt1[idx] - rec1[idx];
+                sqErr += e * e;
+            }
+            mseStride2 += (double)sqErr / frameBytes;
+            interpCount2++;
+        }
+        double avgHeisStride2 = totalHeisPctStride2 / interpCount2;
+        mseStride2 /= interpCount2;
+        double psnrStride2 = 10.0 * System.Math.Log10((255.0 * 255.0) / System.Math.Max(1e-9, mseStride2));
+
+        // 8. Export two side-by-side playable MP4 files with sound (Original vs Decoded after .NET 11 CuboctMediaCodec)
+        string artifactsDir = @"D:\Experiments\Personal Cursor Folder\open\guiders-physics\artifacts";
+        System.IO.Directory.CreateDirectory(artifactsDir);
+        string rawVidOrigPath = System.IO.Path.Combine(artifactsDir, "tos_orig.rgb24");
+        string rawAudOrigPath = System.IO.Path.Combine(artifactsDir, "tos_orig.s16le");
+        string rawVidDecPath  = System.IO.Path.Combine(artifactsDir, "tos_dec.rgb24");
+        string rawAudDecPath  = System.IO.Path.Combine(artifactsDir, "tos_dec.s16le");
+        string mp4OrigPath    = System.IO.Path.Combine(artifactsDir, "tos_1_original_reference.mp4");
+        string mp4DecPath     = System.IO.Path.Combine(artifactsDir, "tos_2_after_cuboct_net11_codec.mp4");
+
+        System.IO.File.WriteAllBytes(rawVidOrigPath, origVideoRgb24);
+        System.IO.File.WriteAllBytes(rawAudOrigPath, origAudioBytes);
+        System.IO.File.WriteAllBytes(rawVidDecPath,  decoded.Rgb24Frames);
+        System.IO.File.WriteAllBytes(rawAudDecPath,  decAudioBytes);
+
+        static void MuxMp4WithSound(string exe, string vidPath, string audPath, int w, int h, int rate, int sr, string outMp4)
+        {
+            string args = $"-y -f rawvideo -pix_fmt rgb24 -s {w}x{h} -r {rate} -i \"{vidPath}\" " +
+                          $"-f s16le -ar {sr} -ac 2 -i \"{audPath}\" " +
+                          $"-c:v libx264 -crf 10 -pix_fmt yuv420p -c:a aac -b:a 256k \"{outMp4}\"";
+            var psi = new System.Diagnostics.ProcessStartInfo(exe, args)
+            {
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            p.StandardError.ReadToEnd();
+            p.WaitForExit();
+            Assert.Equal(0, p.ExitCode);
+        }
+
+        MuxMp4WithSound(ffmpegExe, rawVidOrigPath, rawAudOrigPath, width, height, fps, sampleRate, mp4OrigPath);
+        MuxMp4WithSound(ffmpegExe, rawVidDecPath,  rawAudDecPath,  width, height, fps, sampleRate, mp4DecPath);
+
+        System.IO.File.Delete(rawVidOrigPath);
+        System.IO.File.Delete(rawAudOrigPath);
+        System.IO.File.Delete(rawVidDecPath);
+        System.IO.File.Delete(rawAudDecPath);
+
+        int rawTotalBytes = origVideoRgb24.Length + origAudioBytes.Length;
+        _output.WriteLine($"=== .NET 11 CuboctMediaCodec Benchmark on 14 GB Tears of Steel 4K DCP (00:02:00, {frameCount} frames + 48kHz Stereo Audio) ===");
+        _output.WriteLine($"Raw Uncompressed Stream (Video + Audio): {rawTotalBytes,14:N0} B ({rawTotalBytes / (1024.0 * 1024.0):F2} MB)");
+        _output.WriteLine($".NET GZipStream (Optimal) Size & Time:   {gzipVideoBytes.Length,14:N0} B ({(double)rawTotalBytes / gzipVideoBytes.Length:F2}x) | Encode: {swGzip.Elapsed.TotalMilliseconds:F1} ms");
+        _output.WriteLine($".NET 11 CuboctMediaCodec Size & Time:    {cuboctContainer.Length,14:N0} B ({(double)rawTotalBytes / cuboctContainer.Length:F2}x) | Encode: {swEncode.Elapsed.TotalMilliseconds:F1} ms | Decode: {swDecode.Elapsed.TotalMilliseconds:F1} ms");
+        _output.WriteLine($"Video Quality After Codec vs Original:   100% Bit-Exact SHA-256 ({ System.Convert.ToHexString(shaVideoDec) }), MaxPixelDiff = {maxPixelDiff}, PSNR = +Infinity dB");
+        _output.WriteLine($"Audio Quality After Codec vs Original:   100% Bit-Exact SHA-256 ({ System.Convert.ToHexString(SHA256.HashData(decAudioBytes)) }), MaxSampleDiff = {maxAudioDiff}, Peak = {maxOrigSample}, Energy = {decAudioEnergy:N0}");
+        _output.WriteLine($"Two-Point Keyframe Stride N=2 Quality:   PSNR = {psnrStride2:F2} dB, Pixels inside Heisenberg [-40, +40] = {avgHeisStride2:F2}%");
+        _output.WriteLine($"Saved Reference MP4 (with sound):        {mp4OrigPath} ({new System.IO.FileInfo(mp4OrigPath).Length:N0} B)");
+        _output.WriteLine($"Saved Decoded MP4 (with sound):          {mp4DecPath} ({new System.IO.FileInfo(mp4DecPath).Length:N0} B)");
+
+        Assert.True(cuboctContainer.Length < gzipVideoBytes.Length,
+            $"Expected CuboctMediaCodec ({cuboctContainer.Length:N0} B) < GZipStream ({gzipVideoBytes.Length:N0} B) on Tears of Steel!");
+        Assert.True(swEncode.ElapsedTicks < swGzip.ElapsedTicks,
+            $"Expected CuboctMediaCodec ({swEncode.Elapsed.TotalMilliseconds:F1} ms) < GZipStream ({swGzip.Elapsed.TotalMilliseconds:F1} ms) on Tears of Steel!");
     }
 }

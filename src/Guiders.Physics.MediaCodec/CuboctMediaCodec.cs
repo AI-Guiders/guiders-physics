@@ -1,4 +1,6 @@
 using System;
+using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using Guiders.Physics.Compression;
@@ -7,9 +9,14 @@ using Guiders.Physics.Core;
 namespace Guiders.Physics.MediaCodec;
 
 /// <summary>
-/// 4D Video and Studio Audio Streaming Codec based on 2-Point Verlet Parabola Prediction,
-/// Sub-Green Color Decorrelation, and Two-Point Keyframe Straight-Line Interpolation in the Heisenberg [-40, +40] Deadband.
-/// Uses the pure native CuboctUniversalArchiver (zero System.IO.Compression dependencies).
+/// 4D Video and Studio Audio Streaming Codec built directly on <see cref="Guiders.Physics.Core"/>
+/// (<see cref="CuboctahedronAutomatonKernel"/>) and <see cref="CuboctUniversalArchiver"/>:
+///   - Sub-Green reversible color decorrelation (`R - G`, `G`, `B - G`),
+///   - Intra-frame (`stride = 3`) and inter-frame (`stride = frameBytes`) SIMD Verlet prediction via
+///     <see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/> and
+///     <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/>,
+///   - 2-Point Verlet Stereo PCM16 audio encoding,
+///   - Multiplexed `.cuboct` Audio+Video container with 100% bit-exact lossless recovery.
 /// </summary>
 public static class CuboctMediaCodec
 {
@@ -20,7 +27,7 @@ public static class CuboctMediaCodec
     public static byte[] EncodeStereoPcm16Verlet(ReadOnlySpan<short> stereoInterleavedSamples)
     {
         int nStereo = stereoInterleavedSamples.Length / 2;
-        short[] verlet = new short[nStereo * 2];
+        short[] verlet = GC.AllocateUninitializedArray<short>(nStereo * 2);
         short prevL1 = 0, prevS1 = 0, prevD1L = 0, prevD1S = 0;
 
         for (int i = 0; i < nStereo; i++)
@@ -36,9 +43,9 @@ public static class CuboctMediaCodec
             prevD1L = d1L; prevD1S = d1S;
         }
 
-        byte[] rawBytes = new byte[verlet.Length * 2];
+        byte[] rawBytes = GC.AllocateUninitializedArray<byte>(verlet.Length * 2);
         Buffer.BlockCopy(verlet, 0, rawBytes, 0, rawBytes.Length);
-        return CuboctUniversalArchiver.CompressBlock(rawBytes);
+        return CuboctUniversalArchiver.CompressPredecorrelatedResiduals(rawBytes);
     }
 
     /// <summary>
@@ -49,9 +56,9 @@ public static class CuboctMediaCodec
         int byteLen = nStereoSamples * 4;
         byte[] recBytes = CuboctUniversalArchiver.DecompressBlock(compressedAudio, byteLen);
 
-        short[] recVerlet = new short[nStereoSamples * 2];
+        short[] recVerlet = GC.AllocateUninitializedArray<short>(nStereoSamples * 2);
         Buffer.BlockCopy(recBytes, 0, recVerlet, 0, byteLen);
-        short[] pcm = new short[nStereoSamples * 2];
+        short[] pcm = GC.AllocateUninitializedArray<short>(nStereoSamples * 2);
         short rL1 = 0, rS1 = 0, rD1L = 0, rD1S = 0;
 
         for (int i = 0; i < nStereoSamples; i++)
@@ -64,6 +71,118 @@ public static class CuboctMediaCodec
             pcm[2 * i + 1] = (short)(rL1 + rS1);
         }
         return pcm;
+    }
+
+    /// <summary>
+    /// Encodes a 4D RGB24 video sequence (`frameCount x height x width x 3`) losslessly using Sub-Green color decorrelation,
+    /// kernel intra/inter-frame Verlet prediction (<see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/>),
+    /// and single-pass Heisenberg-41 compression.
+    /// </summary>
+    public static byte[] EncodeRgb24VideoVerlet(ReadOnlySpan<byte> rgb24Frames, int frameCount, int width, int height)
+    {
+        int frameBytes = width * height * 3;
+        int totalBytes = frameCount * frameBytes;
+        byte[] subGreen = GC.AllocateUninitializedArray<byte>(totalBytes);
+
+        // 1. Sub-Green color decorrelation: (R - G, G, B - G)
+        for (int i = 0; i <= totalBytes - 3; i += 3)
+        {
+            byte g = rgb24Frames[i + 1];
+            subGreen[i]     = (byte)(rgb24Frames[i] - g);
+            subGreen[i + 1] = g;
+            subGreen[i + 2] = (byte)(rgb24Frames[i + 2] - g);
+        }
+
+        byte[] residuals = GC.AllocateUninitializedArray<byte>(totalBytes);
+
+        // 2. Inter-frame 1st-order Verlet residual across all frames via Guiders.Physics.Core kernel
+        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+            subGreen, residuals, frameBytes, 0xFF, 0x00);
+
+        // 3. Intra-frame pixel-stride (stride = 3) Verlet residual on Frame 0 via Guiders.Physics.Core kernel
+        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+            subGreen.AsSpan(0, frameBytes), residuals.AsSpan(0, frameBytes), 3, 0xFF, 0x00);
+
+        return CuboctUniversalArchiver.CompressPredecorrelatedResiduals(residuals);
+    }
+
+    /// <summary>
+    /// Decodes a 4D RGB24 video sequence (`frameCount x height x width x 3`) 100% bit-exact via
+    /// <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/> and inverse Sub-Green color transform.
+    /// </summary>
+    public static byte[] DecodeRgb24VideoVerlet(ReadOnlySpan<byte> compressedVideo, int frameCount, int width, int height)
+    {
+        int frameBytes = width * height * 3;
+        int totalBytes = frameCount * frameBytes;
+        byte[] residuals = CuboctUniversalArchiver.DecompressBlock(compressedVideo, totalBytes);
+        byte[] subGreen = GC.AllocateUninitializedArray<byte>(totalBytes);
+
+        // 1. Reconstruct Frame 0 from intra-frame pixel-stride (stride = 3) residuals via Guiders.Physics.Core kernel
+        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+            residuals.AsSpan(0, frameBytes), residuals.AsSpan(0, frameBytes), 3, 0xFF, 0x00);
+
+        // 2. Reconstruct all frames 0..frameCount-1 from inter-frame (stride = frameBytes) residuals via Guiders.Physics.Core kernel
+        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+            residuals, subGreen, frameBytes, 0xFF, 0x00);
+
+        // 3. Inverse Sub-Green color transform: (dR + G, G, dB + G)
+        for (int i = 0; i <= totalBytes - 3; i += 3)
+        {
+            byte g = subGreen[i + 1];
+            subGreen[i]     = (byte)(subGreen[i] + g);
+            subGreen[i + 2] = (byte)(subGreen[i + 2] + g);
+        }
+
+        return subGreen;
+    }
+
+    /// <summary>
+    /// Multiplexes and compresses a full RGB24 video stream and Stereo PCM16 audio track into a single `.cuboct` container.
+    /// </summary>
+    public static byte[] EncodeMultiplexedMediaContainer(
+        ReadOnlySpan<byte> rgb24Frames, int frameCount, int width, int height,
+        ReadOnlySpan<short> stereoInterleavedPcm16, int sampleRate = 48000)
+    {
+        byte[] compVideo = EncodeRgb24VideoVerlet(rgb24Frames, frameCount, width, height);
+        int nStereoSamples = stereoInterleavedPcm16.Length / 2;
+        byte[] compAudio = EncodeStereoPcm16Verlet(stereoInterleavedPcm16);
+
+        // Header: 28 bytes (Width, Height, FrameCount, SampleRate, StereoSamples, VideoLen, AudioLen)
+        byte[] container = GC.AllocateUninitializedArray<byte>(28 + compVideo.Length + compAudio.Length);
+        Span<byte> hdr = container.AsSpan(0, 28);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(0, 4), width);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(4, 4), height);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(8, 4), frameCount);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(12, 4), sampleRate);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(16, 4), nStereoSamples);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(20, 4), compVideo.Length);
+        BinaryPrimitives.WriteInt32LittleEndian(hdr.Slice(24, 4), compAudio.Length);
+
+        compVideo.CopyTo(container.AsSpan(28));
+        compAudio.CopyTo(container.AsSpan(28 + compVideo.Length));
+        return container;
+    }
+
+    /// <summary>
+    /// Demultiplexes and losslessly decodes both the RGB24 video frames and Stereo PCM16 audio track from a `.cuboct` container.
+    /// </summary>
+    public static (byte[] Rgb24Frames, short[] StereoPcm16, int Width, int Height, int FrameCount, int SampleRate)
+        DecodeMultiplexedMediaContainer(ReadOnlySpan<byte> container)
+    {
+        int width = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(0, 4));
+        int height = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(4, 4));
+        int frameCount = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(8, 4));
+        int sampleRate = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(12, 4));
+        int nStereoSamples = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(16, 4));
+        int videoLen = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(20, 4));
+        int audioLen = BinaryPrimitives.ReadInt32LittleEndian(container.Slice(24, 4));
+
+        ReadOnlySpan<byte> compVideo = container.Slice(28, videoLen);
+        ReadOnlySpan<byte> compAudio = container.Slice(28 + videoLen, audioLen);
+
+        byte[] rgb24 = DecodeRgb24VideoVerlet(compVideo, frameCount, width, height);
+        short[] pcm16 = DecodeStereoPcm16Verlet(compAudio, nStereoSamples);
+        return (rgb24, pcm16, width, height, frameCount, sampleRate);
     }
 
     /// <summary>
