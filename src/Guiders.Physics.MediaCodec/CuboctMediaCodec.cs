@@ -77,7 +77,6 @@ public static class CuboctMediaCodec
         int len = keyframe0.Length;
         byte[] rec = new byte[len];
         long inside = 0;
-        int limit = Ring9.DPhiDisc.Bits9; // 41
 
         for (int i = 0; i < len; i++)
         {
@@ -85,11 +84,19 @@ public static class CuboctMediaCodec
             int p1 = keyframeN[i];
             int pred = p0 + (tOffset * (p1 - p0)) / strideN;
             rec[i] = (byte)Math.Clamp(pred, 0, 255);
-            if (!groundTruthFrameT.IsEmpty && Math.Abs(groundTruthFrameT[i] - pred) < limit)
-                inside++;
         }
 
-        double pct = groundTruthFrameT.IsEmpty ? 100.0 : (inside * 100.0 / len);
+        int gtLen = Math.Min(len, groundTruthFrameT.Length);
+        for (int i = 0; i < gtLen; i++)
+        {
+            Ring9 err9 = new((ushort)(512 + groundTruthFrameT[i] - rec[i]));
+            ushort ne = CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(err9).Bits9;
+            inside += 1 / (ne + 1);
+        }
+
+        int hasGt = ((0 - gtLen) >> 31) & 1;
+        int safeDen = gtLen + (1 - hasGt);
+        double pct = (1 - hasGt) * 100.0 + hasGt * (inside * 100.0 / safeDen);
         return (rec, pct);
     }
 

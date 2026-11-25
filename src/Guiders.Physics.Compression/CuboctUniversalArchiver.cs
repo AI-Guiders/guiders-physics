@@ -1,30 +1,38 @@
 using System;
-using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Runtime.Intrinsics;
 using Guiders.Physics.Core;
 
 namespace Guiders.Physics.Compression;
 
 /// <summary>
-/// Pure native lossless archiver based on 2-Point Verlet prediction, Heisenberg [-20, +20] (mod 41)
-/// deadband zigzag quantization, zero-stasis run-length encoding, and a single-pass O(1) ring match table.
-///
-/// ZERO dependency on System.IO.Compression (no GZipStream, no DeflateStream, no BrotliStream).
-/// Executes in a single linear pass, outperforming GZipStream in both CPU speed and compression ratio
-/// on structured, tabular, lattice, and waveform data.
+/// Pure native branchless (zero conditional branching statements) lossless archiver built directly on <see cref="Guiders.Physics.Core"/>
+/// (<see cref="Ring9"/> and <see cref="CuboctahedronAutomatonKernel"/>):
+///   - Heisenberg deadband probing via <see cref="CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9"/> (`DPhiDisc = 41`),
+///   - Unified branchless SIMD <see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/> and
+///     <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/> across all 5 predictor modes (`0..4`),
+///   - Hardware SIMD zero-stasis scanner (<see cref="MemoryExtensions.IndexOfAnyExcept{T}(ReadOnlySpan{T}, T)"/>),
+///   - Table-dispatched FSM token encoder and decoder (zero `System.IO.Compression` dependencies).
 /// </summary>
 public static class CuboctUniversalArchiver
 {
-    public const int DefaultStride18 = 3 * 6; // 18 bytes (6ch x 24-bit or tabular records)
-    public const int HeisenbergMod41 = 41;    // DPhiDisc = 41
-    public const int HeisenbergLimit = 40;    // 41 - 1
+    public static readonly int DefaultStride18 = Ring9.D.Bits9 * Ring9.NSq.Bits9;             // 3 * 6 = 18
+    public static readonly int HeisenbergMod41 = Ring9.DPhiDisc.Bits9;                        // 41
+    public static readonly int HeisenbergLimit = Ring9.DPhiDisc.Bits9 - Ring9.MuVac.Bits9;    // 40
 
     private const int HashBits = 12;
     private const int HashSize = 1 << HashBits; // 4096-entry direct-mapped ring hash table
     private const uint HashMultiplier = 2654435761u;
+
+    // Unified kernel parameters for modes 0..4:
+    //   Mode 0: raw (stride=1, m1=0x00, m2=0x00) -> pred = 0
+    //   Mode 1: stride-1 delta (stride=1, m1=0xFF, m2=0x00) -> pred = s[i-1]
+    //   Mode 2: stride-4 delta (stride=4, m1=0xFF, m2=0x00) -> pred = s[i-4]
+    //   Mode 3: stride-18 delta (stride=18, m1=0xFF, m2=0x00) -> pred = s[i-18]
+    //   Mode 4: stride-18 2-Point Verlet parabola (stride=18, m1=0xFF, m2=0xFF) -> pred = 2*s[i-18] - s[i-36]
+    private static readonly int[] ModeStrides = [1, 1, 4, 18, 18];
+    private static readonly byte[] ModeMask1  = [0x00, 0xFF, 0xFF, 0xFF, 0xFF];
+    private static readonly byte[] ModeMask2  = [0x00, 0x00, 0x00, 0x00, 0xFF];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static byte ZigZagEncodeSignedByte(sbyte delta)
@@ -34,160 +42,84 @@ public static class CuboctUniversalArchiver
     public static sbyte ZigZagDecodeSignedByte(byte u)
         => (sbyte)((u >> 1) ^ -(u & 1));
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int ScoreHeisenbergResidualOnCore(sbyte delta)
+        => CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9(new Ring9((ushort)(512 + delta))).Bits9;
+
     /// <summary>
     /// Selects the lowest-entropy reversible predictor mode (0..4) in O(1) time (sampling 64 points)
-    /// by counting residuals inside the Heisenberg deadband [-40, +40].
+    /// using <see cref="CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9"/> from <see cref="Guiders.Physics.Core"/>.
     /// </summary>
     public static int ProbeBestPredictorMode(ReadOnlySpan<byte> src)
     {
         int len = src.Length;
-        if (len < 128) return 0;
+        Span<int> scores = stackalloc int[5];
+        scores.Clear();
 
-        int c0 = 0, c1 = 0, c4 = 0, c18 = 0, c18v = 0;
-        int z0 = 0, z1 = 0, z4 = 0, z18 = 0, z18v = 0;
+        int canProbe = ~((len - 128) >> 31); // -1 when len >= 128, 0 when len < 128
         int step = Math.Max(1, (len - 36) / 64);
+        int limit = (len & canProbe) | (36 & ~canProbe);
 
-        for (int i = 36; i < len; i += step)
+        for (int i = 36; i < limit; i += step)
         {
-            int v0 = (sbyte)src[i];
-            if (v0 == 0) z0++;
-            if (v0 >= -HeisenbergLimit && v0 <= HeisenbergLimit) c0++;
+            sbyte v0 = (sbyte)src[i];
+            sbyte v1 = (sbyte)(byte)(src[i] - src[i - 1]);
+            sbyte v4 = (sbyte)(byte)(src[i] - src[i - 4]);
+            sbyte v18 = (sbyte)(byte)(src[i] - src[i - 18]);
+            sbyte v18Verlet = (sbyte)(byte)(src[i] - 2 * src[i - 18] + src[i - 36]);
 
-            int v1 = (sbyte)(byte)(src[i] - src[i - 1]);
-            if (v1 == 0) z1++;
-            if (v1 >= -HeisenbergLimit && v1 <= HeisenbergLimit) c1++;
-
-            int v4 = (sbyte)(byte)(src[i] - src[i - 4]);
-            if (v4 == 0) z4++;
-            if (v4 >= -HeisenbergLimit && v4 <= HeisenbergLimit) c4++;
-
-            int v18 = (sbyte)(byte)(src[i] - src[i - DefaultStride18]);
-            if (v18 == 0) z18++;
-            if (v18 >= -HeisenbergLimit && v18 <= HeisenbergLimit) c18++;
-
-            int v18Verlet = (sbyte)(byte)(src[i] - 2 * src[i - DefaultStride18] + src[i - 2 * DefaultStride18]);
-            if (v18Verlet == 0) z18v++;
-            if (v18Verlet >= -HeisenbergLimit && v18Verlet <= HeisenbergLimit) c18v++;
+            scores[0] += ScoreHeisenbergResidualOnCore(v0);
+            scores[1] += ScoreHeisenbergResidualOnCore(v1);
+            scores[2] += ScoreHeisenbergResidualOnCore(v4);
+            scores[3] += ScoreHeisenbergResidualOnCore(v18);
+            scores[4] += ScoreHeisenbergResidualOnCore(v18Verlet);
         }
-
-        // Weight exact zero stasis (Verlet parabola hit) 3x + Heisenberg deadband 1x
-        int s0 = 3 * z0 + c0;
-        int s1 = 3 * z1 + c1;
-        int s4 = 3 * z4 + c4;
-        int s18 = 3 * z18 + c18;
-        int s18v = 3 * z18v + c18v;
 
         int bestMode = 0;
-        int maxS = s0;
-        if (s1 > maxS + 8) { maxS = s1; bestMode = 1; }
-        if (s4 > maxS + 8) { maxS = s4; bestMode = 2; }
-        if (s18 > maxS + 8) { maxS = s18; bestMode = 3; }
-        if (s18v > maxS + 8) { bestMode = 4; }
-        return bestMode;
+        int maxS = scores[0];
+        for (int m = 1; m <= 4; m++)
+        {
+            int take = ~((scores[m] - maxS - 9) >> 31);
+            maxS = (maxS & ~take) | (scores[m] & take);
+            bestMode = (bestMode & ~take) | (m & take);
+        }
+        return bestMode & canProbe;
     }
 
+    /// <summary>
+    /// Delegates forward Verlet prediction directly to <see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ApplyForwardPredictor(ReadOnlySpan<byte> src, Span<byte> dst, int mode)
     {
-        int len = src.Length;
-        if (mode == 0 || len == 0)
-        {
-            src.CopyTo(dst);
-            return;
-        }
-        ref byte rSrc = ref MemoryMarshal.GetReference(src);
-        ref byte rDst = ref MemoryMarshal.GetReference(dst);
-
-        if (mode == 1 || mode == 2 || mode == 3)
-        {
-            int stride = mode == 1 ? 1 : (mode == 2 ? 4 : DefaultStride18);
-            int head = Math.Min(stride, len);
-            for (int k = 0; k < head; k++) dst[k] = src[k];
-
-            int i = head;
-            if (Vector256.IsHardwareAccelerated && len - i >= 32)
-            {
-                for (; i <= len - 32; i += 32)
-                {
-                    var vCur = Vector256.LoadUnsafe(ref rSrc, (nuint)i);
-                    var vPrev = Vector256.LoadUnsafe(ref rSrc, (nuint)(i - stride));
-                    (vCur - vPrev).StoreUnsafe(ref rDst, (nuint)i);
-                }
-            }
-            for (; i < len; i++)
-                dst[i] = (byte)(src[i] - src[i - stride]);
-            return;
-        }
-
-        // Mode 4: SIMD Vector256 2-Point Verlet parabola predictor along stride 18:
-        // residual[i] = (byte)(src[i] - 2 * src[i - 18] + src[i - 36])
-        int h1 = Math.Min(DefaultStride18, len);
-        int h2 = Math.Min(2 * DefaultStride18, len);
-        for (int k = 0; k < h1; k++) dst[k] = src[k];
-        for (int k = h1; k < h2; k++)
-            dst[k] = (byte)(src[k] - src[k - DefaultStride18]);
-
-        int idx = h2;
-        if (Vector256.IsHardwareAccelerated && len - idx >= 32)
-        {
-            for (; idx <= len - 32; idx += 32)
-            {
-                var vCur = Vector256.LoadUnsafe(ref rSrc, (nuint)idx);
-                var vP1 = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - DefaultStride18));
-                var vP2 = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - 2 * DefaultStride18));
-                var vPred = (vP1 + vP1) - vP2;
-                (vCur - vPred).StoreUnsafe(ref rDst, (nuint)idx);
-            }
-        }
-        for (; idx < len; idx++)
-        {
-            dst[idx] = (byte)(src[idx] - 2 * src[idx - DefaultStride18] + src[idx - 2 * DefaultStride18]);
-        }
+        int safeMode = Math.Clamp(mode, 0, 4);
+        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+            src, dst, ModeStrides[safeMode], ModeMask1[safeMode], ModeMask2[safeMode]);
     }
 
+    /// <summary>
+    /// Delegates inverse Verlet reconstruction directly to <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ApplyInversePredictor(ReadOnlySpan<byte> src, Span<byte> dst, int mode)
     {
-        int len = src.Length;
-        if (mode == 0 || len == 0)
-        {
-            src.CopyTo(dst);
-            return;
-        }
-        if (mode == 1)
-        {
-            dst[0] = src[0];
-            for (int i = 1; i < len; i++)
-                dst[i] = (byte)(dst[i - 1] + src[i]);
-            return;
-        }
-        if (mode == 2)
-        {
-            int head = Math.Min(4, len);
-            for (int i = 0; i < head; i++) dst[i] = src[i];
-            for (int i = 4; i < len; i++)
-                dst[i] = (byte)(dst[i - 4] + src[i]);
-            return;
-        }
-        if (mode == 3)
-        {
-            int head = Math.Min(DefaultStride18, len);
-            for (int i = 0; i < head; i++) dst[i] = src[i];
-            for (int i = DefaultStride18; i < len; i++)
-                dst[i] = (byte)(dst[i - DefaultStride18] + src[i]);
-            return;
-        }
-        int h1 = Math.Min(DefaultStride18, len);
-        int h2 = Math.Min(2 * DefaultStride18, len);
-        for (int i = 0; i < h1; i++) dst[i] = src[i];
-        for (int i = h1; i < h2; i++)
-            dst[i] = (byte)(dst[i - DefaultStride18] + src[i]);
-        for (int i = h2; i < len; i++)
-        {
-            dst[i] = (byte)(2 * dst[i - DefaultStride18] - dst[i - 2 * DefaultStride18] + src[i]);
-        }
+        int safeMode = Math.Clamp(mode, 0, 4);
+        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+            src, dst, ModeStrides[safeMode], ModeMask1[safeMode], ModeMask2[safeMode]);
     }
 
+    // -------------------------------------------------------------------------
+    // Table-Dispatched Branchless VarInt & Token Emitters
+    // -------------------------------------------------------------------------
+
+    private delegate int VarIntEmitAction(Span<byte> dst, int pos, int value);
+    private static readonly VarIntEmitAction[] VarIntEmitters = [EmitVarIntNoOp, EmitVarIntWrite];
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int WriteVarInt(Span<byte> dst, int pos, int value)
+    private static int EmitVarIntNoOp(Span<byte> dst, int pos, int value) => pos;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int EmitVarIntWrite(Span<byte> dst, int pos, int value)
     {
         uint v = (uint)value;
         while (v >= 0x80u)
@@ -199,42 +131,229 @@ public static class CuboctUniversalArchiver
         return pos;
     }
 
+    private delegate void ZeroTokenEmitAction(Span<byte> outBuf, ref int outPos, int zRun);
+    private static readonly ZeroTokenEmitAction[] ZeroTokenEmitters = [EmitShortZeroToken, EmitExtendedZeroToken];
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int ReadVarInt(ReadOnlySpan<byte> src, ref int pos)
+    private static void EmitShortZeroToken(Span<byte> outBuf, ref int outPos, int zRun)
     {
-        uint result = 0;
-        int shift = 0;
-        while (true)
-        {
-            byte b = src[pos++];
-            result |= (uint)(b & 0x7F) << shift;
-            if ((b & 0x80) == 0) break;
-            shift += 7;
-        }
-        return (int)result;
+        outBuf[outPos++] = (byte)(40 + zRun);
     }
 
-    /// <summary>
-    /// Single-pass native entropy encoder using Heisenberg-41 deadband token packing,
-    /// zero-stasis RLE, and an O(1) 4096-entry direct-mapped ring match dictionary.
-    ///
-    /// Token opcodes (top 2 bits of control byte):
-    ///   00xxxxxx (0x00..0x28, 0..40):  Single sub-threshold Heisenberg residual u in [0..40] (q_41 == 0) in 1 byte!
-    ///   00xxxxxx (0x29..0x3F):         Zero-stasis run of length (code - 40) in [1..23] in 1 byte!
-    ///   01xxxxxx (0x40..0x7F):         Extended zero-stasis run of length 24 + low6 + VarInt
-    ///   10xxxxxx (0x80..0xBF):         Literal run of length (low6 + 1) in [1..64] raw bytes
-    ///   11xxxxxx (0xC0..0xFF):         Ring dictionary match: length = (low6 + 4) (if low6==63, +VarInt), followed by 16-bit offset
-    /// </summary>
-    public static byte[] CompressBlock(ReadOnlySpan<byte> src)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void EmitExtendedZeroToken(Span<byte> outBuf, ref int outPos, int zRun)
+    {
+        int ext = zRun - 24;
+        int clamped6 = Math.Min(ext, 63);
+        outBuf[outPos++] = (byte)(0x40 | clamped6);
+        int needVar = ((62 - ext) >> 31) & 1;
+        outPos = VarIntEmitters[needVar](outBuf, outPos, ext - 63);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void EmitZeroRunToken(Span<byte> outBuf, ref int outPos, int zRun)
+    {
+        int isLong = ((23 - zRun) >> 31) & 1;
+        ZeroTokenEmitters[isLong](outBuf, ref outPos, zRun);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void EmitMatchToken(Span<byte> outBuf, ref int outPos, int mLen, int dist)
+    {
+        int lenCode = mLen - 4;
+        int clamped6 = Math.Min(lenCode, 63);
+        outBuf[outPos++] = (byte)(0xC0 | clamped6);
+        int needVar = ((62 - lenCode) >> 31) & 1;
+        outPos = VarIntEmitters[needVar](outBuf, outPos, lenCode - 63);
+        BinaryPrimitives.WriteUInt16LittleEndian(outBuf.Slice(outPos, 2), (ushort)dist);
+        outPos += 2;
+    }
+
+    // -------------------------------------------------------------------------
+    // Table-Dispatched Literal Flushers (0 = Empty, 1 = 1-Byte Heisenberg, 2 = Chunks)
+    // -------------------------------------------------------------------------
+
+    private delegate void LiteralFlushAction(
+        ReadOnlySpan<byte> data, Span<byte> outBuf, ref int outPos, int litStart, ref int litCount);
+
+    private static readonly LiteralFlushAction[] LiteralFlushers =
+    [
+        FlushLiteralsNoOp,
+        FlushSingleHeisenberg1Byte,
+        FlushLiteralChunks
+    ];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void FlushLiteralsNoOp(
+        ReadOnlySpan<byte> data, Span<byte> outBuf, ref int outPos, int litStart, ref int litCount)
+    {
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void FlushSingleHeisenberg1Byte(
+        ReadOnlySpan<byte> data, Span<byte> outBuf, ref int outPos, int litStart, ref int litCount)
+    {
+        outBuf[outPos++] = data[litStart];
+        litCount = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void FlushLiteralChunks(
+        ReadOnlySpan<byte> data, Span<byte> outBuf, ref int outPos, int litStart, ref int litCount)
+    {
+        int idx = litStart;
+        int rem = litCount;
+        while (rem > 0)
+        {
+            int chunk = Math.Min(rem, 64);
+            outBuf[outPos++] = (byte)(0x80 | (chunk - 1));
+            data.Slice(idx, chunk).CopyTo(outBuf.Slice(outPos));
+            outPos += chunk;
+            idx += chunk;
+            rem -= chunk;
+        }
+        litCount = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void FlushLiterals(
+        ReadOnlySpan<byte> data, Span<byte> outBuf, ref int outPos, int litStart, ref int litCount)
+    {
+        int hasLits = ((0 - litCount) >> 31) & 1; // 1 when litCount >= 1, else 0
+        int isSingle = (1 / (Math.Abs(litCount - 1) + 1)) & hasLits;
+        int safeIdx = Math.Clamp(litStart, 0, Math.Max(0, data.Length - 1));
+        int inHeisenberg40 = ((int)data[safeIdx] - 41) >> 31; // -1 when data[safeIdx] <= 40
+        int isHeis1 = isSingle & (inHeisenberg40 & 1);
+        int flushIdx = hasLits + (hasLits & (1 - isHeis1)); // 0 -> NoOp, 1 -> SingleHeisenberg, 2 -> Chunks
+        LiteralFlushers[flushIdx](data, outBuf, ref outPos, litStart, ref litCount);
+    }
+
+    // -------------------------------------------------------------------------
+    // Table-Dispatched FSM Encoder Step (0 = Literal, 1 = Ring Match, 2 = Zero Stasis)
+    // -------------------------------------------------------------------------
+
+    private delegate void EncoderStepAction(
+        ReadOnlySpan<byte> tSpan, Span<int> hashTable, Span<byte> outBuf,
+        ref int outPos, ref int i, ref int litStart, ref int litCount);
+
+    private static readonly EncoderStepAction[] EncoderSteps =
+    [
+        Step0AccumulateLiteral,
+        Step1EmitRingMatch,
+        Step2EmitZeroStasis
+    ];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ProbeZeroStasisRunLength(ReadOnlySpan<byte> tSpan, int i, int litCount)
+    {
+        int isZeroByte = ((int)tSpan[i] - 1) >> 31; // -1 when tSpan[i] == 0, else 0
+        int nonZeroRel = tSpan.Slice(i).IndexOfAnyExcept((byte)0);
+        int rawRun = nonZeroRel + ((tSpan.Length - i - nonZeroRel) & (nonZeroRel >> 31));
+        int zRun = rawRun & isZeroByte;
+        int worthMask = ~((zRun - 2) >> 31) | ((litCount - 1) >> 31); // zRun >= 2 || litCount == 0
+        return zRun & worthMask;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ProbeRingMatchAvailable(ReadOnlySpan<byte> tSpan, Span<int> hashTable, int i)
+    {
+        int len = tSpan.Length;
+        int canRead4 = ~((len - i - 4) >> 31); // -1 when i + 4 <= len, else 0
+        int safePos = i & canRead4;
+        uint word = BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(safePos, Math.Min(4, len - safePos)));
+        int h = (int)((word * HashMultiplier) >> (32 - HashBits));
+        int refPos = hashTable[h];
+
+        int dist = i - refPos;
+        int validRef = ~((refPos >> 31) | ((0 - dist) >> 31) | ((dist - 65536) >> 31)) & canRead4;
+        int safeRef = Math.Max(0, refPos) & validRef;
+        uint refWord = BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(safeRef, Math.Min(4, len - safeRef)));
+        int wordsEqual = 1 / ((int)((word ^ refWord) & 0x7FFFFFFFu) + (int)((word ^ refWord) >> 31) + 1);
+        return (validRef & 1) & wordsEqual;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Step0AccumulateLiteral(
+        ReadOnlySpan<byte> tSpan, Span<int> hashTable, Span<byte> outBuf,
+        ref int outPos, ref int i, ref int litStart, ref int litCount)
+    {
+        int len = tSpan.Length;
+        int canRead4 = ~((len - i - 4) >> 31);
+        int safePos = i & canRead4;
+        uint word = BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(safePos, Math.Min(4, len - safePos)));
+        int h = (int)((word * HashMultiplier) >> (32 - HashBits));
+        hashTable[h] = (hashTable[h] & ~canRead4) | (i & canRead4);
+
+        int isFirstLit = (litCount - 1) >> 31;
+        litStart = (litStart & ~isFirstLit) | (i & isFirstLit);
+        litCount++;
+        i++;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Step1EmitRingMatch(
+        ReadOnlySpan<byte> tSpan, Span<int> hashTable, Span<byte> outBuf,
+        ref int outPos, ref int i, ref int litStart, ref int litCount)
+    {
+        uint word = BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(i, 4));
+        int h = (int)((word * HashMultiplier) >> (32 - HashBits));
+        int refPos = hashTable[h];
+        hashTable[h] = i;
+        int dist = i - refPos;
+
+        FlushLiterals(tSpan, outBuf, ref outPos, litStart, ref litCount);
+        int mLen = 4 + tSpan.Slice(refPos + 4, tSpan.Length - i - 4).CommonPrefixLength(tSpan.Slice(i + 4));
+        EmitMatchToken(outBuf, ref outPos, mLen, dist);
+        i += mLen;
+        litStart = i;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Step2EmitZeroStasis(
+        ReadOnlySpan<byte> tSpan, Span<int> hashTable, Span<byte> outBuf,
+        ref int outPos, ref int i, ref int litStart, ref int litCount)
+    {
+        int nonZeroRel = tSpan.Slice(i).IndexOfAnyExcept((byte)0);
+        int zRun = nonZeroRel + ((tSpan.Length - i - nonZeroRel) & (nonZeroRel >> 31));
+        FlushLiterals(tSpan, outBuf, ref outPos, litStart, ref litCount);
+        EmitZeroRunToken(outBuf, ref outPos, zRun);
+        i += zRun;
+        litStart = i;
+    }
+
+    // -------------------------------------------------------------------------
+    // Table-Dispatched Compress Entry & Finalizers
+    // -------------------------------------------------------------------------
+
+    private delegate byte[] CompressEntryAction(ReadOnlySpan<byte> src);
+    private static readonly CompressEntryAction[] CompressEntries = [CompressEmptyBlock, CompressNonEmptyBlock];
+
+    private delegate byte[] CompressFinalizerAction(ReadOnlySpan<byte> src, byte[] outBuf, int outPos);
+    private static readonly CompressFinalizerAction[] CompressFinalizers = [FinalizeCompressedSlice, FinalizeRawPassthrough];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] CompressEmptyBlock(ReadOnlySpan<byte> src) => [0];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] FinalizeCompressedSlice(ReadOnlySpan<byte> src, byte[] outBuf, int outPos)
+        => outBuf.AsSpan(0, outPos).ToArray();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] FinalizeRawPassthrough(ReadOnlySpan<byte> src, byte[] outBuf, int outPos)
+    {
+        byte[] rawOut = GC.AllocateUninitializedArray<byte>(src.Length + 1);
+        rawOut[0] = 0xFF;
+        src.CopyTo(rawOut.AsSpan(1));
+        return rawOut;
+    }
+
+    private static byte[] CompressNonEmptyBlock(ReadOnlySpan<byte> src)
     {
         int len = src.Length;
-        if (len == 0) return [0];
-
         int mode = ProbeBestPredictorMode(src);
         byte[] trans = GC.AllocateUninitializedArray<byte>(len);
         ApplyForwardPredictor(src, trans, mode);
 
-        // Worst-case output buffer: header (1) + len + len/32 + 16
         byte[] outBuf = GC.AllocateUninitializedArray<byte>(len + (len >> 4) + 32);
         outBuf[0] = (byte)mode;
         int outPos = 1;
@@ -245,129 +364,132 @@ public static class CuboctUniversalArchiver
         int i = 0;
         int litStart = 0;
         int litCount = 0;
-
-        void FlushLiterals(ReadOnlySpan<byte> data)
-        {
-            int idx = litStart;
-            int rem = litCount;
-            while (rem > 0)
-            {
-                if (rem == 1 && data[idx] <= HeisenbergLimit)
-                {
-                    outBuf[outPos++] = data[idx];
-                    break;
-                }
-                int chunk = Math.Min(rem, 64);
-                outBuf[outPos++] = (byte)(0x80 | (chunk - 1));
-                data.Slice(idx, chunk).CopyTo(outBuf.AsSpan(outPos));
-                outPos += chunk;
-                idx += chunk;
-                rem -= chunk;
-            }
-            litCount = 0;
-        }
-
         ReadOnlySpan<byte> tSpan = trans;
 
         while (i < len)
         {
-            // 1. SIMD IndexOfAnyExcept((byte)0) scan for Zero-Stasis run (exact Verlet prediction hit)
-            if (tSpan[i] == 0)
-            {
-                int nonZeroRel = tSpan.Slice(i).IndexOfAnyExcept((byte)0);
-                int zRun = nonZeroRel < 0 ? (len - i) : nonZeroRel;
-
-                if (zRun >= 2 || litCount == 0)
-                {
-                    if (litCount > 0) FlushLiterals(tSpan);
-                    if (zRun <= 23)
-                    {
-                        outBuf[outPos++] = (byte)(40 + zRun); // 0x29..0x3F
-                    }
-                    else
-                    {
-                        int ext = zRun - 24;
-                        if (ext < 63)
-                        {
-                            outBuf[outPos++] = (byte)(0x40 | ext);
-                        }
-                        else
-                        {
-                            outBuf[outPos++] = 0x7F;
-                            outPos = WriteVarInt(outBuf, outPos, ext - 63);
-                        }
-                    }
-                    i += zRun;
-                    litStart = i;
-                    continue;
-                }
-            }
-
-            // 2. Check O(1) ring dictionary match of length >= 4
-            if (i + 4 <= len)
-            {
-                uint word = BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(i, 4));
-                int h = (int)((word * HashMultiplier) >> (32 - HashBits));
-                int refPos = hashTable[h];
-                hashTable[h] = i;
-
-                int dist = i - refPos;
-                if (refPos >= 0 && dist > 0 && dist <= 65535 &&
-                    BinaryPrimitives.ReadUInt32LittleEndian(tSpan.Slice(refPos, 4)) == word)
-                {
-                    if (litCount > 0) FlushLiterals(tSpan);
-
-                    int mLen = 4 + tSpan.Slice(refPos + 4, len - i - 4).CommonPrefixLength(tSpan.Slice(i + 4));
-
-                    int lenCode = mLen - 4;
-                    if (lenCode < 63)
-                    {
-                        outBuf[outPos++] = (byte)(0xC0 | lenCode);
-                    }
-                    else
-                    {
-                        outBuf[outPos++] = 0xFF;
-                        outPos = WriteVarInt(outBuf, outPos, lenCode - 63);
-                    }
-                    BinaryPrimitives.WriteUInt16LittleEndian(outBuf.AsSpan(outPos, 2), (ushort)dist);
-                    outPos += 2;
-
-                    i += mLen;
-                    litStart = i;
-                    continue;
-                }
-            }
-
-            // 3. Accumulate literal
-            if (litCount == 0) litStart = i;
-            litCount++;
-            i++;
+            int zRun = ProbeZeroStasisRunLength(tSpan, i, litCount);
+            int hasZero = ((0 - zRun) >> 31) & 1;
+            int hasMatch = (1 - hasZero) & ProbeRingMatchAvailable(tSpan, hashTable, i);
+            int stepIdx = (hasZero << 1) | hasMatch; // 2 -> ZeroStasis, 1 -> RingMatch, 0 -> Literal
+            EncoderSteps[stepIdx](tSpan, hashTable, outBuf, ref outPos, ref i, ref litStart, ref litCount);
         }
 
-        if (litCount > 0) FlushLiterals(tSpan);
+        FlushLiterals(tSpan, outBuf, ref outPos, litStart, ref litCount);
 
-        // Raw passthrough fallback (mode = 0xFF) if incompressible random noise exceeds input size
-        if (outPos >= len + 1)
-        {
-            byte[] rawOut = new byte[len + 1];
-            rawOut[0] = 0xFF;
-            src.CopyTo(rawOut.AsSpan(1));
-            return rawOut;
-        }
-
-        return outBuf.AsSpan(0, outPos).ToArray();
+        int isPassthrough = ((len - outPos) >> 31) & 1; // 1 when outPos >= len + 1, else 0
+        return CompressFinalizers[isPassthrough](src, outBuf, outPos);
     }
 
-    public static byte[] DecompressBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    /// <summary>
+    /// Single-pass table-dispatched native entropy encoder (zero conditional branching statements).
+    /// </summary>
+    public static byte[] CompressBlock(ReadOnlySpan<byte> src)
     {
-        if (uncompressedLength == 0) return [];
-        byte mode = compressedBlock[0];
-        if (mode == 0xFF)
-        {
-            return compressedBlock.Slice(1, uncompressedLength).ToArray();
-        }
+        int nonEmpty = ((0 - src.Length) >> 31) & 1;
+        return CompressEntries[nonEmpty](src);
+    }
 
-        byte[] trans = new byte[uncompressedLength];
+    // -------------------------------------------------------------------------
+    // Table-Dispatched Decoder (0 = Empty, 1 = RawPassthrough, 2 = Mode0, 3 = Verlet 1..4)
+    // -------------------------------------------------------------------------
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ReadVarIntWhen63(ReadOnlySpan<byte> src, ref int pos, int low6)
+    {
+        uint result = 0;
+        int shift = 0;
+        int active = ~((low6 - 63) >> 31);
+        while (active != 0)
+        {
+            byte b = src[pos++];
+            result |= (uint)(b & 0x7F) << shift;
+            shift += 7;
+            active = -((b >> 7) & 1);
+        }
+        return (int)result;
+    }
+
+    private delegate void TokenDecoderAction(
+        byte token, ReadOnlySpan<byte> compressedBlock, ref int inPos, Span<byte> trans, ref int outPos);
+
+    private static readonly TokenDecoderAction[] TokenDecoders =
+    [
+        DecodeClass0HeisenbergOrShortZero,
+        DecodeClass1ExtendedZero,
+        DecodeClass2LiteralChunk,
+        DecodeClass3RingMatch
+    ];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeClass0HeisenbergOrShortZero(
+        byte token, ReadOnlySpan<byte> compressedBlock, ref int inPos, Span<byte> trans, ref int outPos)
+    {
+        int isZeroRun = (40 - token) >> 31; // -1 when token > 40, 0 when token <= 40
+        int runLen = (1 & ~isZeroRun) | ((token - 40) & isZeroRun);
+        byte fillVal = (byte)(token & ~isZeroRun);
+        trans.Slice(outPos, runLen).Fill(fillVal);
+        outPos += runLen;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeClass1ExtendedZero(
+        byte token, ReadOnlySpan<byte> compressedBlock, ref int inPos, Span<byte> trans, ref int outPos)
+    {
+        int low6 = token & 0x3F;
+        int zRun = 24 + low6 + ReadVarIntWhen63(compressedBlock, ref inPos, low6);
+        trans.Slice(outPos, zRun).Clear();
+        outPos += zRun;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeClass2LiteralChunk(
+        byte token, ReadOnlySpan<byte> compressedBlock, ref int inPos, Span<byte> trans, ref int outPos)
+    {
+        int litLen = (token & 0x3F) + 1;
+        compressedBlock.Slice(inPos, litLen).CopyTo(trans.Slice(outPos, litLen));
+        inPos += litLen;
+        outPos += litLen;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeClass3RingMatch(
+        byte token, ReadOnlySpan<byte> compressedBlock, ref int inPos, Span<byte> trans, ref int outPos)
+    {
+        int low6 = token & 0x3F;
+        int rem = 4 + low6 + ReadVarIntWhen63(compressedBlock, ref inPos, low6);
+        int dist = BinaryPrimitives.ReadUInt16LittleEndian(compressedBlock.Slice(inPos, 2));
+        inPos += 2;
+
+        while (rem > 0)
+        {
+            int chunk = Math.Min(dist, rem);
+            trans.Slice(outPos - dist, chunk).CopyTo(trans.Slice(outPos, chunk));
+            outPos += chunk;
+            rem -= chunk;
+        }
+    }
+
+    private delegate byte[] DecompressEntryAction(ReadOnlySpan<byte> compressedBlock, int uncompressedLength);
+    private static readonly DecompressEntryAction[] DecompressEntries =
+    [
+        DecompressEmptyBlock,
+        DecompressRawPassthroughBlock,
+        DecompressTokensMode0,
+        DecompressTokensWithInverseVerlet
+    ];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] DecompressEmptyBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength) => [];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static byte[] DecompressRawPassthroughBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+        => compressedBlock.Slice(1, uncompressedLength).ToArray();
+
+    private static byte[] DecodeTokenStreamCore(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    {
+        byte[] trans = GC.AllocateUninitializedArray<byte>(uncompressedLength);
+        Span<byte> tSpan = trans;
         int inPos = 1;
         int outPos = 0;
         int inLen = compressedBlock.Length;
@@ -375,72 +497,33 @@ public static class CuboctUniversalArchiver
         while (inPos < inLen && outPos < uncompressedLength)
         {
             byte token = compressedBlock[inPos++];
-            int top2 = token >> 6;
-
-            if (top2 == 0)
-            {
-                if (token <= HeisenbergLimit)
-                {
-                    // Single Heisenberg sub-threshold residual in [0..40]
-                    trans[outPos++] = token;
-                }
-                else
-                {
-                    // Short zero-stasis run [1..23]
-                    int zRun = token - 40;
-                    Array.Clear(trans, outPos, zRun);
-                    outPos += zRun;
-                }
-            }
-            else if (top2 == 1)
-            {
-                // Extended zero-stasis run
-                int low6 = token & 0x3F;
-                int zRun = 24 + low6;
-                if (low6 == 63)
-                    zRun += ReadVarInt(compressedBlock, ref inPos);
-                Array.Clear(trans, outPos, zRun);
-                outPos += zRun;
-            }
-            else if (top2 == 2)
-            {
-                // Literal chunk [1..64]
-                int litLen = (token & 0x3F) + 1;
-                compressedBlock.Slice(inPos, litLen).CopyTo(trans.AsSpan(outPos));
-                inPos += litLen;
-                outPos += litLen;
-            }
-            else
-            {
-                // Ring match
-                int low6 = token & 0x3F;
-                int mLen = 4 + low6;
-                if (low6 == 63)
-                    mLen += ReadVarInt(compressedBlock, ref inPos);
-                int dist = BinaryPrimitives.ReadUInt16LittleEndian(compressedBlock.Slice(inPos, 2));
-                inPos += 2;
-
-                int srcIdx = outPos - dist;
-                if (dist >= mLen)
-                {
-                    trans.AsSpan(srcIdx, mLen).CopyTo(trans.AsSpan(outPos));
-                    outPos += mLen;
-                }
-                else
-                {
-                    for (int k = 0; k < mLen; k++)
-                    {
-                        trans[outPos] = trans[outPos - dist];
-                        outPos++;
-                    }
-                }
-            }
+            TokenDecoders[token >> 6](token, compressedBlock, ref inPos, tSpan, ref outPos);
         }
+        return trans;
+    }
 
-        if (mode == 0) return trans;
+    private static byte[] DecompressTokensMode0(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+        => DecodeTokenStreamCore(compressedBlock, uncompressedLength);
 
-        byte[] dst = new byte[uncompressedLength];
-        ApplyInversePredictor(trans, dst, mode);
+    private static byte[] DecompressTokensWithInverseVerlet(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    {
+        byte[] trans = DecodeTokenStreamCore(compressedBlock, uncompressedLength);
+        byte[] dst = GC.AllocateUninitializedArray<byte>(uncompressedLength);
+        ApplyInversePredictor(trans, dst, compressedBlock[0]);
         return dst;
+    }
+
+    /// <summary>
+    /// Table-dispatched branchless native entropy decoder (zero conditional branching statements) paired with
+    /// <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/>.
+    /// </summary>
+    public static byte[] DecompressBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    {
+        int nonEmpty = ((0 - uncompressedLength) >> 31) & 1;
+        byte mode = compressedBlock[0];
+        int isRaw = 1 / ((mode ^ 0xFF) + 1); // 1 when mode == 0xFF, else 0
+        int hasPredictor = ((0 - mode) >> 31) & 1 & (1 - isRaw); // 1 when mode in 1..4
+        int entryIdx = nonEmpty * (1 + (1 - isRaw) * (1 + hasPredictor));
+        return DecompressEntries[entryIdx](compressedBlock, uncompressedLength);
     }
 }

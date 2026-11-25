@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 
 namespace Guiders.Physics.Core;
 
@@ -547,6 +548,91 @@ public static unsafe class CuboctahedronAutomatonKernel
     {
         ushort abs9 = gateRaw.AbsWrap.Bits9;
         return new Ring9((ushort)(abs9 / 41));
+    }
+
+    /// <summary>
+    /// Branchlessly scores a 9-bit phase residual against the Heisenberg-41 deadband (`DPhiDisc = 41`):
+    /// returns `4` (`3 + 1`) for exact zero stasis (`delta == 0`), `1` for sub-threshold deadband (`1 &lt;= |delta| &lt;= 40`), and `0` otherwise.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Ring9 ScoreHeisenbergStasis9(Ring9 delta9)
+    {
+        ushort abs9 = delta9.AbsWrap.Bits9;
+        ushort ne = HeisenbergEnergyQuanta(delta9).Bits9;
+        ushort inDeadband = (ushort)(1 / (ne + 1));
+        ushort isZero = (ushort)(1 / (abs9 + 1));
+        return new Ring9((ushort)(3 * isZero + inDeadband));
+    }
+
+    /// <summary>
+    /// Unified branchless SIMD <see cref="Vector256{T}"/> forward 1st/2nd-order Verlet residual operator on raw byte streams:
+    /// `dst[i] = src[i] - ((src[i - stride] &amp; maskOrder1) + (src[i - stride] &amp; maskOrder2) - (src[i - 2*stride] &amp; maskOrder2))`.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ComputeVerletResidualBuffer(
+        ReadOnlySpan<byte> src, Span<byte> dst, int stride, byte maskOrder1, byte maskOrder2)
+    {
+        int len = src.Length;
+        int h1 = Math.Min(stride, len);
+        int h2 = Math.Min(2 * stride, len);
+
+        src.Slice(0, h1).CopyTo(dst);
+
+        for (int k = h1; k < h2; k++)
+        {
+            dst[k] = (byte)(src[k] - (src[k - stride] & maskOrder1));
+        }
+
+        int idx = h2;
+        ref byte rSrc = ref MemoryMarshal.GetReference(src);
+        ref byte rDst = ref MemoryMarshal.GetReference(dst);
+        var vM1 = Vector256.Create(maskOrder1);
+        var vM2 = Vector256.Create(maskOrder2);
+
+        for (; idx <= len - 32; idx += 32)
+        {
+            var vCur = Vector256.LoadUnsafe(ref rSrc, (nuint)idx);
+            var vP1  = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - stride));
+            var vP2  = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - 2 * stride));
+            var vPred = ((vP1 & vM1) + (vP1 & vM2)) - (vP2 & vM2);
+            (vCur - vPred).StoreUnsafe(ref rDst, (nuint)idx);
+        }
+
+        for (; idx < len; idx++)
+        {
+            byte p1 = src[idx - stride];
+            byte p2 = src[idx - 2 * stride];
+            byte pred = (byte)(((p1 & maskOrder1) + (p1 & maskOrder2)) - (p2 & maskOrder2));
+            dst[idx] = (byte)(src[idx] - pred);
+        }
+    }
+
+    /// <summary>
+    /// Unified branchless inverse 1st/2nd-order Verlet reconstruction operator on raw byte streams:
+    /// `dst[i] = residual[i] + ((dst[i - stride] &amp; maskOrder1) + (dst[i - stride] &amp; maskOrder2) - (dst[i - 2*stride] &amp; maskOrder2))`.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ReconstructVerletBuffer(
+        ReadOnlySpan<byte> residual, Span<byte> dst, int stride, byte maskOrder1, byte maskOrder2)
+    {
+        int len = residual.Length;
+        int h1 = Math.Min(stride, len);
+        int h2 = Math.Min(2 * stride, len);
+
+        residual.Slice(0, h1).CopyTo(dst);
+
+        for (int k = h1; k < h2; k++)
+        {
+            dst[k] = (byte)(residual[k] + (dst[k - stride] & maskOrder1));
+        }
+
+        for (int idx = h2; idx < len; idx++)
+        {
+            byte p1 = dst[idx - stride];
+            byte p2 = dst[idx - 2 * stride];
+            byte pred = (byte)(((p1 & maskOrder1) + (p1 & maskOrder2)) - (p2 & maskOrder2));
+            dst[idx] = (byte)(residual[idx] + pred);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

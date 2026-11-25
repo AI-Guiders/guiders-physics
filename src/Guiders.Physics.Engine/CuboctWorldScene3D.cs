@@ -165,59 +165,44 @@ public sealed class KitchenBenchDigitalTwin
         return frame;
     }
 
+    private static readonly Ring9[] StageIndices =
+        [Ring9.Zero, Ring9.MuVac, Ring9.C0OverCSq, Ring9.D, Ring9.DInSquare, Ring9.DOutEdge];
+
+    private static readonly Ring9[] StageTargetDphi =
+        [Ring9.CollapsePhi, Ring9.CollapsePhi, Ring9.CollapsePhi, Ring9.QSquare, Ring9.CollapsePhi, Ring9.Zero];
+
+    private static readonly Ring9[] StageTargetZ =
+    [
+        Ring9.NTri + Ring9.C0OverCSq, // 10 (H2O condensation on TEC1-12706)
+        Ring9.MHat - Ring9.MuVac,     // 96 (Glucose + 6 O2 photosynthesis)
+        Ring9.KP + Ring9.NSq,         // 70 (Chiral L-amino & Heme FeN4O2)
+        Ring9.KP + Ring9.NSq,         // 70 (12-beam 52.734 kHz ultrasonic folding)
+        Ring9.KP + Ring9.NSq,         // 70 (68 C Maillard golden crust)
+        Ring9.KP + Ring9.NSq          // 70 (Phase stasis lock D = 6,823,936)
+    ];
+
     public static bool VerifyUart16ByteFrameCrc(byte[] frame)
     {
-        if (frame is null || frame.Length != 16 || frame[0] != 0xA5 || frame[15] != 0x5A)
-            return false;
+        bool validHeader = frame is not null && frame.Length == 16 && frame[0] == 0xA5 && frame[15] == 0x5A;
         byte crc = 0;
-        for (int i = 1; i <= 13; i++)
-            crc ^= frame[i];
-        return crc == frame[14];
+        int lim = validHeader ? 13 : 0;
+        for (int i = 1; i <= lim; i++)
+            crc ^= frame![i];
+        return validHeader && (crc == frame![14]);
     }
 
     public KitchenBenchStageSnapshot9 EvaluateMinute(int minute)
     {
-        int m = minute < 0 ? 0 : (minute > 52 ? 52 : minute);
-        Ring9 stageIdx;
-        Ring9 targetDphi;
-        Ring9 targetZ;
+        int m = Math.Clamp(minute, 0, 52);
+        int s = (((3 - m) >> 31) & 1)
+              + (((17 - m) >> 31) & 1)
+              + (((33 - m) >> 31) & 1)
+              + (((45 - m) >> 31) & 1)
+              + (((51 - m) >> 31) & 1);
 
-        if (m < 4)
-        {
-            stageIdx = Ring9.Zero;
-            targetDphi = Ring9.CollapsePhi; // 139
-            targetZ = Ring9.NTri + Ring9.C0OverCSq; // 10 (H2O condensation on TEC1-12706)
-        }
-        else if (m < 18)
-        {
-            stageIdx = Ring9.MuVac;
-            targetDphi = Ring9.CollapsePhi; // 139
-            targetZ = Ring9.MHat - Ring9.MuVac; // 96 (Glucose + 6 O2 photosynthesis)
-        }
-        else if (m < 34)
-        {
-            stageIdx = Ring9.C0OverCSq;
-            targetDphi = Ring9.CollapsePhi; // 139
-            targetZ = Ring9.KP + Ring9.NSq; // 70 (Chiral L-amino & Heme FeN4O2)
-        }
-        else if (m < 46)
-        {
-            stageIdx = Ring9.D;
-            targetDphi = Ring9.QSquare; // 128 (12-beam 52.734 kHz ultrasonic folding)
-            targetZ = Ring9.KP + Ring9.NSq; // 70
-        }
-        else if (m < 52)
-        {
-            stageIdx = Ring9.DInSquare;
-            targetDphi = Ring9.CollapsePhi; // 139 (68 C Maillard golden crust)
-            targetZ = Ring9.KP + Ring9.NSq; // 70
-        }
-        else
-        {
-            stageIdx = Ring9.DOutEdge;
-            targetDphi = Ring9.Zero; // 0 (Phase stasis lock D = 6,823,936)
-            targetZ = Ring9.KP + Ring9.NSq; // 70
-        }
+        Ring9 stageIdx = StageIndices[s];
+        Ring9 targetDphi = StageTargetDphi[s];
+        Ring9 targetZ = StageTargetZ[s];
 
         // Thermal coil lag shifts from 64 ticks (25 C) to 58 ticks (63.8 C at 52 min):
         ushort thermalDrop = (ushort)((m * 6) / 52);
@@ -233,15 +218,7 @@ public sealed class KitchenBenchDigitalTwin
         Ring9 recovered = CuboctahedronAutomatonKernel.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
             Ring9.MuVac, Ring9.MuVac, telemetry.AcousticWave, telemetry.ReactionCurrent);
 
-        uint lagInt = 0;
-        for (ushort cand = 0; cand < 512; cand++)
-        {
-            if (new Ring9(cand) == totalLag)
-            {
-                lagInt = cand;
-                break;
-            }
-        }
+        uint lagInt = totalLag.Bits9;
         byte[] uart0x08 = PackUart16ByteFrame(0x08, 1u, lagInt, 2u);
 
         return new KitchenBenchStageSnapshot9(
@@ -296,15 +273,15 @@ public sealed class KitchenBenchDigitalTwin
     public static bool VerifyAcousticFixedPointAcross4OperatingModes9()
     {
         Ring9[] modes = [Ring9.Zero, Ring9.QSquare, Ring9.CollapsePhi, Ring9.PhiPauli];
+        bool allMatch = true;
         for (int i = 0; i < modes.Length; i++)
         {
             Ring9 m = modes[i];
             var cell = VerletCell72.Create(Ring9.MuVac, m, Ring9.Zero, Ring9.MuVac, Ring9.Zero, Ring9.Zero);
             var s = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
-            if (s.AcousticWave != m)
-                return false;
+            allMatch &= (s.AcousticWave == m);
         }
-        return true;
+        return allMatch;
     }
 
     public static bool Run3DPetriLatticeReversibleCycle9(ushort latticeSize = 4)
