@@ -1,8 +1,7 @@
 using System;
-using System.IO;
-using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using Guiders.Physics.Compression;
 using Guiders.Physics.Core;
 
 namespace Guiders.Physics.MediaCodec;
@@ -10,12 +9,13 @@ namespace Guiders.Physics.MediaCodec;
 /// <summary>
 /// 4D Video and Studio Audio Streaming Codec based on 2-Point Verlet Parabola Prediction,
 /// Sub-Green Color Decorrelation, and Two-Point Keyframe Straight-Line Interpolation in the Heisenberg [-40, +40] Deadband.
+/// Uses the pure native CuboctUniversalArchiver (zero System.IO.Compression dependencies).
 /// </summary>
 public static class CuboctMediaCodec
 {
     /// <summary>
     /// Encodes a 16-bit Stereo PCM audio buffer losslessly using Mid/Side (L, R-L) decorrelation
-    /// and 2nd-order Verlet parabola prediction `s_hat(t) = 2*s(t-1) - s(t-2)`.
+    /// and 2nd-order Verlet parabola prediction `s_hat(t) = 2*s(t-1) - s(t-2)` + native Heisenberg-41 compression.
     /// </summary>
     public static byte[] EncodeStereoPcm16Verlet(ReadOnlySpan<short> stereoInterleavedSamples)
     {
@@ -38,10 +38,7 @@ public static class CuboctMediaCodec
 
         byte[] rawBytes = new byte[verlet.Length * 2];
         Buffer.BlockCopy(verlet, 0, rawBytes, 0, rawBytes.Length);
-        using var ms = new MemoryStream();
-        using (var br = new BrotliStream(ms, CompressionLevel.Optimal, true))
-            br.Write(rawBytes, 0, rawBytes.Length);
-        return ms.ToArray();
+        return CuboctUniversalArchiver.CompressBlock(rawBytes);
     }
 
     /// <summary>
@@ -50,18 +47,7 @@ public static class CuboctMediaCodec
     public static short[] DecodeStereoPcm16Verlet(ReadOnlySpan<byte> compressedAudio, int nStereoSamples)
     {
         int byteLen = nStereoSamples * 4;
-        byte[] recBytes = new byte[byteLen];
-        using (var msIn = new MemoryStream(compressedAudio.ToArray()))
-        using (var br = new BrotliStream(msIn, CompressionMode.Decompress))
-        {
-            int rd = 0;
-            while (rd < byteLen)
-            {
-                int n = br.Read(recBytes, rd, byteLen - rd);
-                if (n <= 0) break;
-                rd += n;
-            }
-        }
+        byte[] recBytes = CuboctUniversalArchiver.DecompressBlock(compressedAudio, byteLen);
 
         short[] recVerlet = new short[nStereoSamples * 2];
         Buffer.BlockCopy(recBytes, 0, recVerlet, 0, byteLen);

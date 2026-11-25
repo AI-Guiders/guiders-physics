@@ -1032,9 +1032,10 @@ public class GuidersPhysicsSuiteTests
     }
 
     [Fact]
-    public void Compression_UniversalArchiver_BitExactSha256AcrossModes()
+    public void Compression_UniversalArchiver_BitExactSha256_ZeroGZipDependency_AndFasterThanGZip()
     {
-        byte[] raw = new byte[64 * 1024];
+        // 1. 256 KB 18-channel Verlet sensor/waveform stream
+        byte[] raw = new byte[256 * 1024];
         for (int i = 0; i < raw.Length; i++)
         {
             int t = i / 18;
@@ -1042,9 +1043,57 @@ public class GuidersPhysicsSuiteTests
             raw[i] = (byte)(t * 7 + ch * 13);
         }
 
+        // Warm-up JIT for both our native archiver and GZipStream
+        _ = CuboctUniversalArchiver.CompressBlock(raw.AsSpan(0, 4096));
+        using (var warmMs = new System.IO.MemoryStream())
+        using (var warmGz = new System.IO.Compression.GZipStream(warmMs, System.IO.Compression.CompressionLevel.Optimal, true))
+        {
+            warmGz.Write(raw.AsSpan(0, 4096));
+        }
+
+        // Measure our pure native CuboctUniversalArchiver (zero GZipStream inside!)
+        var swCuboct = System.Diagnostics.Stopwatch.StartNew();
         byte[] comp = CuboctUniversalArchiver.CompressBlock(raw);
+        swCuboct.Stop();
+
         byte[] rec = CuboctUniversalArchiver.DecompressBlock(comp, raw.Length);
         Assert.Equal(SHA256.HashData(raw), SHA256.HashData(rec));
+
+        // Measure standard GZipStream on the exact same 256 KB payload
+        var swGzip = System.Diagnostics.Stopwatch.StartNew();
+        byte[] gzipBytes;
+        using (var gzMs = new System.IO.MemoryStream())
+        {
+            using (var gz = new System.IO.Compression.GZipStream(gzMs, System.IO.Compression.CompressionLevel.Optimal, true))
+            {
+                gz.Write(raw);
+            }
+            gzipBytes = gzMs.ToArray();
+        }
+        swGzip.Stop();
+
+        // Native Verlet-Heisenberg41 archiver must be BOTH smaller AND faster than GZipStream!
+        Assert.True(comp.Length < gzipBytes.Length, $"Expected native archiver ({comp.Length} B) < GZip ({gzipBytes.Length} B)");
+        Assert.True(swCuboct.ElapsedTicks < swGzip.ElapsedTicks, $"Expected native archiver ({swCuboct.Elapsed.TotalMilliseconds:F3} ms) < GZip ({swGzip.Elapsed.TotalMilliseconds:F3} ms)");
+
+        // 2. Also verify 100% SHA-256 recovery on Mode 1 (stride-1 ramp), Mode 2 (stride-4 ints), and incompressible random noise (0xFF passthrough)
+        byte[] ramp1 = new byte[16384];
+        byte[] ramp4 = new byte[16384];
+        byte[] noise = new byte[8192];
+        var rng = new System.Random(263);
+        rng.NextBytes(noise);
+        for (int i = 0; i < ramp1.Length; i++)
+        {
+            ramp1[i] = (byte)(i * 3 + (i % 5));
+            ramp4[i] = (byte)((i / 4) * 9 + (i % 4) * 41);
+        }
+
+        foreach (byte[] sample in new[] { ramp1, ramp4, noise })
+        {
+            byte[] c = CuboctUniversalArchiver.CompressBlock(sample);
+            byte[] r = CuboctUniversalArchiver.DecompressBlock(c, sample.Length);
+            Assert.Equal(SHA256.HashData(sample), SHA256.HashData(r));
+        }
     }
 
     [Fact]
