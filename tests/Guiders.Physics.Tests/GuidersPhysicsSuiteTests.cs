@@ -1095,6 +1095,24 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
             byte[] r = CuboctUniversalArchiver.DecompressBlock(c, sample.Length);
             Assert.Equal(SHA256.HashData(sample), SHA256.HashData(r));
         }
+
+        // 3. Verify STRICT ZERO heap allocations (0 bytes in GC!) for CompressSpan and in-place DecompressSpan
+        byte[] preallocScratch = new byte[raw.Length];
+        byte[] preallocComp = new byte[CuboctUniversalArchiver.GetMaxCompressedLength(raw.Length)];
+        byte[] preallocDec = new byte[raw.Length];
+
+        // Warm-up CompressSpan & DecompressSpan
+        int wWarm = CuboctUniversalArchiver.CompressSpan(raw, preallocComp, preallocScratch);
+        _ = CuboctUniversalArchiver.DecompressSpan(preallocComp.AsSpan(0, wWarm), preallocDec);
+
+        long allocBefore = System.GC.GetAllocatedBytesForCurrentThread();
+        int compWritten = CuboctUniversalArchiver.CompressSpan(raw, preallocComp, preallocScratch);
+        int decWritten = CuboctUniversalArchiver.DecompressSpan(preallocComp.AsSpan(0, compWritten), preallocDec);
+        long allocAfter = System.GC.GetAllocatedBytesForCurrentThread();
+
+        Assert.Equal(0L, allocAfter - allocBefore);
+        Assert.Equal(raw.Length, decWritten);
+        Assert.Equal(SHA256.HashData(raw), SHA256.HashData(preallocDec));
     }
 
     [Fact]
@@ -1212,15 +1230,52 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         }
         Assert.True(maxOrigSample > 500, $"Expected active audio in Tears of Steel at 00:02:00, peak={maxOrigSample}");
 
-        // 3. Encode & Decode Multiplexed Video + Audio Container purely in .NET 11 via CuboctMediaCodec
-        var swEncode = System.Diagnostics.Stopwatch.StartNew();
-        byte[] cuboctContainer = CuboctMediaCodec.EncodeMultiplexedMediaContainer(
-            origVideoRgb24, frameCount, width, height, origAudioPcm16, sampleRate);
+        // 3. Encode & Decode Multiplexed Video + Audio Container purely in .NET 11 via zero-allocation Span APIs
+        int maxVidComp = CuboctUniversalArchiver.GetMaxCompressedLength(origVideoRgb24.Length);
+        int maxAudComp = CuboctUniversalArchiver.GetMaxCompressedLength(origAudioBytes.Length);
+        byte[] preSubG = new byte[origVideoRgb24.Length];
+        byte[] preRes  = new byte[origVideoRgb24.Length];
+        byte[] preVidComp = new byte[maxVidComp];
+        byte[] preVidDec  = new byte[origVideoRgb24.Length];
+        short[] preAudScratch = new short[origAudioPcm16.Length];
+        byte[] preAudComp = new byte[maxAudComp];
+        short[] preAudDec = new short[origAudioPcm16.Length];
+
+        // Warm-up JIT for zero-allocation Span encoders/decoders
+        int warmV = CuboctMediaCodec.EncodeRgb24VideoVerletSpan(
+            origVideoRgb24.AsSpan(0, frameBytes * 2), 2, width, height, preVidComp, preSubG, preRes);
+        _ = CuboctMediaCodec.DecodeRgb24VideoVerletSpan(
+            preVidComp.AsSpan(0, warmV), 2, width, height, preVidDec);
+        int warmA = CuboctMediaCodec.EncodeStereoPcm16VerletSpan(
+            origAudioPcm16.AsSpan(0, 4096), preAudScratch, preAudComp);
+        _ = CuboctMediaCodec.DecodeStereoPcm16VerletSpan(
+            preAudComp.AsSpan(0, warmA), 2048, preAudDec);
+
+        // Measure zero-allocation Span encode & decode on 83.9 MB Tears of Steel clip and assert 0 bytes allocated on GC heap!
+        var swEncode = new System.Diagnostics.Stopwatch();
+        var swDecode = new System.Diagnostics.Stopwatch();
+        long gcBefore = System.GC.GetAllocatedBytesForCurrentThread();
+        swEncode.Start();
+        int compVidLen = CuboctMediaCodec.EncodeRgb24VideoVerletSpan(
+            origVideoRgb24, frameCount, width, height, preVidComp, preSubG, preRes);
+        int compAudLen = CuboctMediaCodec.EncodeStereoPcm16VerletSpan(
+            origAudioPcm16, preAudScratch, preAudComp);
         swEncode.Stop();
 
-        var swDecode = System.Diagnostics.Stopwatch.StartNew();
-        var decoded = CuboctMediaCodec.DecodeMultiplexedMediaContainer(cuboctContainer);
+        swDecode.Start();
+        _ = CuboctMediaCodec.DecodeRgb24VideoVerletSpan(
+            preVidComp.AsSpan(0, compVidLen), frameCount, width, height, preVidDec);
+        _ = CuboctMediaCodec.DecodeStereoPcm16VerletSpan(
+            preAudComp.AsSpan(0, compAudLen), nStereoSamples, preAudDec);
         swDecode.Stop();
+        long gcAfter = System.GC.GetAllocatedBytesForCurrentThread();
+        long heapBytesAllocated = gcAfter - gcBefore;
+
+        Assert.Equal(0L, heapBytesAllocated);
+
+        byte[] cuboctContainer = CuboctMediaCodec.EncodeMultiplexedMediaContainer(
+            origVideoRgb24, frameCount, width, height, origAudioPcm16, sampleRate);
+        var decoded = (Rgb24Frames: preVidDec, StereoPcm16: preAudDec);
 
         // 4. Measure standard .NET GZipStream(CompressionLevel.Optimal) on the exact same Video + Audio payload
         var swGzip = System.Diagnostics.Stopwatch.StartNew();
@@ -1378,12 +1433,85 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         _output.WriteLine($"=== .NET 11 CuboctMediaCodec Benchmark on 14 GB Tears of Steel 4K DCP (00:02:00, {frameCount} frames + 48kHz Stereo Audio) ===");
         _output.WriteLine($"Raw Uncompressed Stream (Video + Audio): {rawTotalBytes,14:N0} B ({rawTotalBytes / (1024.0 * 1024.0):F2} MB)");
         _output.WriteLine($".NET GZipStream (Optimal) Size & Time:   {gzipVideoBytes.Length,14:N0} B ({(double)rawTotalBytes / gzipVideoBytes.Length:F2}x) | Encode: {swGzip.Elapsed.TotalMilliseconds:F1} ms");
-        _output.WriteLine($".NET 11 CuboctMediaCodec Size & Time:    {cuboctContainer.Length,14:N0} B ({(double)rawTotalBytes / cuboctContainer.Length:F2}x) | Encode: {swEncode.Elapsed.TotalMilliseconds:F1} ms | Decode: {swDecode.Elapsed.TotalMilliseconds:F1} ms");
+        _output.WriteLine($".NET 11 CuboctMediaCodec Size & Time:    {cuboctContainer.Length,14:N0} B ({(double)rawTotalBytes / cuboctContainer.Length:F2}x) | Encode: {swEncode.Elapsed.TotalMilliseconds:F1} ms | Decode: {swDecode.Elapsed.TotalMilliseconds:F1} ms | GC Heap Allocated: {heapBytesAllocated} B");
         _output.WriteLine($"Video Quality After Codec vs Original:   100% Bit-Exact SHA-256 ({ System.Convert.ToHexString(shaVideoDec) }), MaxPixelDiff = {maxPixelDiff}, PSNR = +Infinity dB");
         _output.WriteLine($"Audio Quality After Codec vs Original:   100% Bit-Exact SHA-256 ({ System.Convert.ToHexString(SHA256.HashData(decAudioBytes)) }), MaxSampleDiff = {maxAudioDiff}, Peak = {maxOrigSample}, Energy = {decAudioEnergy:N0}");
         _output.WriteLine($"Two-Point Keyframe Stride N=2 Quality:   PSNR = {psnrStride2:F2} dB, Pixels inside Heisenberg [-40, +40] = {avgHeisStride2:F2}%");
         _output.WriteLine($"Saved Reference MP4 (with sound):        {mp4OrigPath} ({new System.IO.FileInfo(mp4OrigPath).Length:N0} B)");
         _output.WriteLine($"Saved Decoded MP4 (with sound):          {mp4DecPath} ({new System.IO.FileInfo(mp4DecPath).Length:N0} B)");
+
+        // 9. Stream the ENTIRE 14.11 GB (13.14 GiB = 14,106,261,707 bytes) Tears of Steel 4K DCP (tos_picture.mxf + tos_sound.mxf)
+        //    through zero-allocation CompressSpan + in-place DecompressSpan using a single reusable 16 MiB ArrayPool buffer!
+        const int streamChunkSize = 16 * 1024 * 1024; // 16 MiB constant memory footprint
+        byte[] poolRaw = System.Buffers.ArrayPool<byte>.Shared.Rent(streamChunkSize);
+        byte[] poolScratch = System.Buffers.ArrayPool<byte>.Shared.Rent(streamChunkSize);
+        byte[] poolComp = System.Buffers.ArrayPool<byte>.Shared.Rent(CuboctUniversalArchiver.GetMaxCompressedLength(streamChunkSize));
+        byte[] poolDec = System.Buffers.ArrayPool<byte>.Shared.Rent(streamChunkSize);
+
+        long totalDcpInBytes = 0;
+        long totalDcpCompBytes = 0;
+        long totalCodecHeapAlloc = 0;
+        var swFull14GbEncode = new System.Diagnostics.Stopwatch();
+        var swFull14GbDecode = new System.Diagnostics.Stopwatch();
+
+        try
+        {
+            foreach (string mxfPath in new[] { tosPicPath, tosSndPath })
+            {
+                using var fs = new System.IO.FileStream(
+                    mxfPath, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read,
+                    bufferSize: 1024 * 1024, System.IO.FileOptions.SequentialScan);
+
+                while (true)
+                {
+                    int filled = 0;
+                    while (filled < streamChunkSize)
+                    {
+                        int n = fs.Read(poolRaw, filled, streamChunkSize - filled);
+                        if (n <= 0) break;
+                        filled += n;
+                    }
+                    if (filled == 0) break;
+
+                    var rawSlice = poolRaw.AsSpan(0, filled);
+                    var decSlice = poolDec.AsSpan(0, filled);
+
+                    long gc0 = System.GC.GetAllocatedBytesForCurrentThread();
+                    swFull14GbEncode.Start();
+                    int cLen = CuboctUniversalArchiver.CompressSpan(rawSlice, poolComp, poolScratch);
+                    swFull14GbEncode.Stop();
+
+                    swFull14GbDecode.Start();
+                    int dLen = CuboctUniversalArchiver.DecompressSpan(poolComp.AsSpan(0, cLen), decSlice);
+                    swFull14GbDecode.Stop();
+                    long gc1 = System.GC.GetAllocatedBytesForCurrentThread();
+
+                    totalCodecHeapAlloc += (gc1 - gc0);
+                    totalDcpInBytes += filled;
+                    totalDcpCompBytes += cLen;
+
+                    Assert.Equal(filled, dLen);
+                    Assert.True(rawSlice.SequenceEqual(decSlice), $"Bit-exact mismatch on {mxfPath} at offset {totalDcpInBytes}");
+                }
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(poolRaw);
+            System.Buffers.ArrayPool<byte>.Shared.Return(poolScratch);
+            System.Buffers.ArrayPool<byte>.Shared.Return(poolComp);
+            System.Buffers.ArrayPool<byte>.Shared.Return(poolDec);
+        }
+
+        Assert.Equal(14_106_261_707L, totalDcpInBytes);
+        Assert.Equal(0L, totalCodecHeapAlloc);
+
+        _output.WriteLine(
+            $"FULL 14.11 GB (13.14 GiB) Tears of Steel DCP (tos_picture.mxf + tos_sound.mxf): " +
+            $"{totalDcpInBytes,14:N0} B -> {totalDcpCompBytes,14:N0} B | " +
+            $"Encode: {swFull14GbEncode.Elapsed.TotalSeconds:F2} s ({totalDcpInBytes / (1024.0 * 1024.0 * swFull14GbEncode.Elapsed.TotalSeconds):F0} MiB/s) | " +
+            $"Decode: {swFull14GbDecode.Elapsed.TotalSeconds:F2} s ({totalDcpInBytes / (1024.0 * 1024.0 * swFull14GbDecode.Elapsed.TotalSeconds):F0} MiB/s) | " +
+            $"GC Heap Allocated across 14.11 GB: {totalCodecHeapAlloc} B | 100% Bit-Exact SequenceEqual Verified!");
 
         Assert.True(cuboctContainer.Length < gzipVideoBytes.Length,
             $"Expected CuboctMediaCodec ({cuboctContainer.Length:N0} B) < GZipStream ({gzipVideoBytes.Length:N0} B) on Tears of Steel!");

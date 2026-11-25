@@ -1,5 +1,7 @@
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
+using System.IO;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Guiders.Physics.Core;
@@ -7,13 +9,14 @@ using Guiders.Physics.Core;
 namespace Guiders.Physics.Compression;
 
 /// <summary>
-/// Pure native branchless (zero conditional branching statements) lossless archiver built directly on <see cref="Guiders.Physics.Core"/>
-/// (<see cref="Ring9"/>, <see cref="VerletCell72"/> 8-lane architecture, and <see cref="CuboctahedronAutomatonKernel"/>):
-///   - Heisenberg deadband probing via <see cref="CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9"/> (`DPhiDisc = 41`),
-///   - Unified branchless SIMD <see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/> and
-///     <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/> across all 5 predictor modes (`0..4`),
-///   - 64-bit SWAR (8-Lane <see cref="VerletCell72"/> register) quantum bit-width packer (`b in 0..8` bits/lane + O(1) 8-byte ring match `code = 9`),
-///   - Table-dispatched encoder and decoder (zero `System.IO.Compression` dependencies).
+/// Pure native branchless (zero conditional branching statements) and zero-allocation lossless archiver
+/// built directly on <see cref="Guiders.Physics.Core"/> (<see cref="Ring9"/>, <see cref="VerletCell72"/> 8-lane architecture,
+/// and <see cref="CuboctahedronAutomatonKernel"/>):
+///   - Zero-allocation <see cref="CompressSpan"/>, <see cref="CompressPredecorrelatedSpan"/>, and in-place <see cref="DecompressSpan"/>
+///     (`0` bytes allocated on the managed heap per block),
+///   - Multi-gigabyte (>14 GB) streaming pipeline <see cref="CompressStream"/> and <see cref="DecompressStream"/> backed by
+///     a single reusable <see cref="ArrayPool{T}"/> buffer (constant RAM footprint, zero per-chunk GC allocations),
+///   - 64-bit SWAR (8-Lane <see cref="VerletCell72"/> register) quantum bit-width packer (`b in 0..8` bits/lane + O(1) 8-byte ring match `code = 9`).
 /// </summary>
 public static class CuboctUniversalArchiver
 {
@@ -22,12 +25,16 @@ public static class CuboctUniversalArchiver
     public static readonly int HeisenbergLimit = Ring9.DPhiDisc.Bits9 - Ring9.MuVac.Bits9;    // 40
 
     private const int HashBits = 12;
-    private const int HashSize = 1 << HashBits; // 4096-entry direct-mapped 8-byte ring hash table
+    private const int HashSize = 1 << HashBits; // 4096-entry stack-allocated 8-byte ring hash table
     private const ulong HashMultiplier64 = 11400714819323198485UL;
 
     private static readonly int[] ModeStrides = [1, 1, 4, 18, 18];
     private static readonly byte[] ModeMask1  = [0x00, 0xFF, 0xFF, 0xFF, 0xFF];
     private static readonly byte[] ModeMask2  = [0x00, 0x00, 0x00, 0x00, 0xFF];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetMaxCompressedLength(int uncompressedLength)
+        => uncompressedLength + (uncompressedLength >> 3) + 64;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static byte ZigZagEncodeSignedByte(sbyte delta)
@@ -37,9 +44,6 @@ public static class CuboctUniversalArchiver
     public static sbyte ZigZagDecodeSignedByte(byte u)
         => (sbyte)((u >> 1) ^ -(u & 1));
 
-    /// <summary>
-    /// 64-bit SWAR simultaneous ZigZag encoding of 8 signed bytes inside a single <see cref="ulong"/> register.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong ZigZagEncode8LanesSwar(ulong raw8)
     {
@@ -48,9 +52,6 @@ public static class CuboctUniversalArchiver
         return shl1 ^ signMask;
     }
 
-    /// <summary>
-    /// 64-bit SWAR simultaneous ZigZag decoding of 8 unsigned bytes inside a single <see cref="ulong"/> register.
-    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static ulong ZigZagDecode8LanesSwar(ulong u8)
     {
@@ -63,10 +64,6 @@ public static class CuboctUniversalArchiver
     public static int ScoreHeisenbergResidualOnCore(sbyte delta)
         => CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9(new Ring9((ushort)(512 + delta))).Bits9;
 
-    /// <summary>
-    /// Selects the lowest-entropy reversible predictor mode (0..4) in O(1) time (sampling 64 points)
-    /// using <see cref="CuboctahedronAutomatonKernel.ScoreHeisenbergStasis9"/> from <see cref="Guiders.Physics.Core"/>.
-    /// </summary>
     public static int ProbeBestPredictorMode(ReadOnlySpan<byte> src)
     {
         int len = src.Length;
@@ -120,7 +117,7 @@ public static class CuboctUniversalArchiver
     }
 
     // -------------------------------------------------------------------------
-    // 8-Lane (64-Bit SWAR) Quantum Bit-Width Encoder & Table-Dispatched Emitters
+    // Zero-Allocation 8-Lane (64-Bit SWAR) Quantum Bit-Width Encoder
     // -------------------------------------------------------------------------
 
     private delegate void LaneEmitAction(
@@ -144,7 +141,6 @@ public static class CuboctUniversalArchiver
     private static void EmitLaneCode0Zero(
         int code, ulong raw8, ulong u8, ushort matchDist, Span<byte> outBuf, ref int outPos)
     {
-        // 0 payload bytes emitted for an all-zero 8-byte lane!
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -183,17 +179,14 @@ public static class CuboctUniversalArchiver
     private static int Classify8ByteLane(
         ulong raw8, int pos, Span<int> hashPos, Span<ulong> hashWords, out ulong u8, out ushort matchDist)
     {
-        // 1. Check all-zero 8-byte lane (code = 0)
-        int isNonZero = (int)((raw8 | (0UL - raw8)) >> 63); // 1 when raw8 != 0, 0 when raw8 == 0
+        int isNonZero = (int)((raw8 | (0UL - raw8)) >> 63);
 
-        // 2. Compute SWAR ZigZag and quantum bit-width b in [1..8]
         u8 = ZigZagEncode8LanesSwar(raw8);
         ulong or4 = u8 | (u8 >> 32);
         ulong or2 = or4 | (or4 >> 16);
         uint orAll = (uint)((or2 | (or2 >> 8)) & 0xFFUL);
-        int b = (BitOperations.Log2(orAll | 1u) + 1) * isNonZero; // 0 when raw8 == 0, else 1..8
+        int b = (BitOperations.Log2(orAll | 1u) + 1) * isNonZero;
 
-        // 3. Probe O(1) 8-byte ring match dictionary (only profitable when b >= 3, saving 1..6 bytes)
         int h = (int)((raw8 * HashMultiplier64) >> (64 - HashBits));
         int refPos = hashPos[h];
         ulong refWord = hashWords[h];
@@ -201,11 +194,11 @@ public static class CuboctUniversalArchiver
         hashWords[h] = raw8;
 
         int dist = pos - refPos;
-        int validDist = ~((refPos >> 31) | ((7 - dist) >> 31) | ((dist - 65536) >> 31)); // dist in [8..65535]
+        int validDist = ~((refPos >> 31) | ((7 - dist) >> 31) | ((dist - 65536) >> 31));
         ulong diffWord = raw8 ^ refWord;
         int wordMatch = 1 - (int)((diffWord | (0UL - diffWord)) >> 63);
         int bGe3 = ~((b - 3) >> 31);
-        int useMatch = validDist & (-wordMatch) & bGe3; // -1 when match should be used, else 0
+        int useMatch = validDist & (-wordMatch) & bGe3;
 
         matchDist = (ushort)(dist & useMatch);
         return (b & ~useMatch) | (9 & useMatch);
@@ -229,11 +222,16 @@ public static class CuboctUniversalArchiver
         int remAfter16 = alignedLen - (i + 16);
         int nonZeroRel = tSpan.Slice(i + 16, remAfter16).IndexOfAnyExcept((byte)0);
         int extraZeroBytes = nonZeroRel + ((remAfter16 - nonZeroRel) & (nonZeroRel >> 31));
-        int extraPairs = Math.Min(255, extraZeroBytes >> 4);
+        int totalPairs = 1 + (extraZeroBytes >> 4);
+        i += totalPairs << 4;
 
-        outBuf[outPos++] = 0x00;
-        outBuf[outPos++] = (byte)extraPairs;
-        i += (1 + extraPairs) << 4;
+        while (totalPairs > 0)
+        {
+            int chunk = Math.Min(256, totalPairs);
+            outBuf[outPos++] = 0x00;
+            outBuf[outPos++] = (byte)(chunk - 1);
+            totalPairs -= chunk;
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -278,7 +276,6 @@ public static class CuboctUniversalArchiver
         ulong raw0 = BinaryPrimitives.ReadUInt64LittleEndian(pad16.Slice(0, 8));
         ulong raw1 = BinaryPrimitives.ReadUInt64LittleEndian(pad16.Slice(8, 8));
 
-        // Do not use ring match on padded tail to avoid out-of-bounds reconstruction
         int isNz0 = (int)((raw0 | (0UL - raw0)) >> 63);
         ulong u0 = ZigZagEncode8LanesSwar(raw0);
         ulong or0 = u0 | (u0 >> 32); or0 |= (or0 >> 16);
@@ -294,11 +291,26 @@ public static class CuboctUniversalArchiver
         LaneEmitters[code1](code1, raw1, u1, 0, outBuf, ref outPos);
     }
 
-    private static byte[] EncodeResidualsCore(ReadOnlySpan<byte> tSpan, byte modeHeader, ReadOnlySpan<byte> rawFallbackSource)
+    private delegate int SpanFinalizerAction(ReadOnlySpan<byte> rawFallbackSource, Span<byte> destination, int outPos);
+    private static readonly SpanFinalizerAction[] SpanFinalizers = [FinalizeSpanCompressed, FinalizeSpanRawPassthrough];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FinalizeSpanCompressed(ReadOnlySpan<byte> rawFallbackSource, Span<byte> destination, int outPos)
+        => outPos;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FinalizeSpanRawPassthrough(ReadOnlySpan<byte> rawFallbackSource, Span<byte> destination, int outPos)
+    {
+        destination[0] = 0xFF;
+        rawFallbackSource.CopyTo(destination.Slice(1));
+        return rawFallbackSource.Length + 1;
+    }
+
+    private static int EncodeResidualsToSpanCore(
+        ReadOnlySpan<byte> tSpan, byte modeHeader, ReadOnlySpan<byte> rawFallbackSource, Span<byte> destination)
     {
         int len = tSpan.Length;
-        byte[] outBuf = GC.AllocateUninitializedArray<byte>(len + (len >> 3) + 64);
-        outBuf[0] = modeHeader;
+        destination[0] = modeHeader;
         int outPos = 1;
 
         Span<int> hashPos = stackalloc int[HashSize];
@@ -307,76 +319,136 @@ public static class CuboctUniversalArchiver
 
         int alignedLen = len & ~15;
         int i = 0;
-        Span<byte> outSpan = outBuf;
 
         while (i < alignedLen)
         {
             ulong raw0 = BinaryPrimitives.ReadUInt64LittleEndian(tSpan.Slice(i, 8));
             ulong raw1 = BinaryPrimitives.ReadUInt64LittleEndian(tSpan.Slice(i + 8, 8));
             ulong anyBits = raw0 | raw1;
-            int isNonZeroPair = (int)((anyBits | (0UL - anyBits)) >> 63); // 0 -> AllZeroRun, 1 -> NonZeroPair
-            PairEncoders[isNonZeroPair](tSpan, alignedLen, ref i, hashPos, hashWords, outSpan, ref outPos);
+            int isNonZeroPair = (int)((anyBits | (0UL - anyBits)) >> 63);
+            PairEncoders[isNonZeroPair](tSpan, alignedLen, ref i, hashPos, hashWords, destination, ref outPos);
         }
 
         int tailLen = len - alignedLen;
         int hasTail = ((0 - tailLen) >> 31) & 1;
-        TailEncoders[hasTail](tSpan, alignedLen, tailLen, hashPos, hashWords, outSpan, ref outPos);
+        TailEncoders[hasTail](tSpan, alignedLen, tailLen, hashPos, hashWords, destination, ref outPos);
 
         int isPassthrough = ((len - outPos) >> 31) & 1;
-        return CompressFinalizers[isPassthrough](rawFallbackSource, outBuf, outPos);
+        return SpanFinalizers[isPassthrough](rawFallbackSource, destination, outPos);
     }
 
-    private delegate byte[] CompressEntryAction(ReadOnlySpan<byte> src);
-    private static readonly CompressEntryAction[] CompressEntries = [CompressEmptyBlock, CompressNonEmptyBlock];
-
-    private delegate byte[] CompressFinalizerAction(ReadOnlySpan<byte> src, byte[] outBuf, int outPos);
-    private static readonly CompressFinalizerAction[] CompressFinalizers = [FinalizeCompressedSlice, FinalizeRawPassthrough];
+    private delegate int CompressSpanEntryAction(ReadOnlySpan<byte> src, Span<byte> destination, Span<byte> scratch);
+    private static readonly CompressSpanEntryAction[] CompressSpanEntries = [CompressEmptySpan, CompressNonEmptySpan];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] CompressEmptyBlock(ReadOnlySpan<byte> src) => [0];
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] FinalizeCompressedSlice(ReadOnlySpan<byte> src, byte[] outBuf, int outPos)
-        => outBuf.AsSpan(0, outPos).ToArray();
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] FinalizeRawPassthrough(ReadOnlySpan<byte> src, byte[] outBuf, int outPos)
+    private static int CompressEmptySpan(ReadOnlySpan<byte> src, Span<byte> destination, Span<byte> scratch)
     {
-        byte[] rawOut = GC.AllocateUninitializedArray<byte>(src.Length + 1);
-        rawOut[0] = 0xFF;
-        src.CopyTo(rawOut.AsSpan(1));
-        return rawOut;
+        destination[0] = 0;
+        return 1;
     }
 
-    private static byte[] CompressNonEmptyBlock(ReadOnlySpan<byte> src)
+    private static int CompressNonEmptySpan(ReadOnlySpan<byte> src, Span<byte> destination, Span<byte> scratch)
     {
         int len = src.Length;
         int mode = ProbeBestPredictorMode(src);
-        byte[] trans = GC.AllocateUninitializedArray<byte>(len);
+        Span<byte> trans = scratch.Slice(0, len);
         ApplyForwardPredictor(src, trans, mode);
-        return EncodeResidualsCore(trans, (byte)mode, src);
+        return EncodeResidualsToSpanCore(trans, (byte)mode, src, destination);
     }
 
     /// <summary>
-    /// Single-pass table-dispatched native entropy encoder (zero conditional branching statements).
+    /// Zero-allocation span encoder (`0` bytes allocated on the managed heap).
+    /// Writes the compressed block into <paramref name="destination"/> (capacity &gt;= <see cref="GetMaxCompressedLength"/>)
+    /// using <paramref name="scratch"/> (capacity &gt;= <c>src.Length</c>) and returns the number of bytes written.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int CompressSpan(ReadOnlySpan<byte> src, Span<byte> destination, Span<byte> scratch)
+    {
+        int nonEmpty = ((0 - src.Length) >> 31) & 1;
+        return CompressSpanEntries[nonEmpty](src, destination, scratch);
+    }
+
+    /// <summary>
+    /// Zero-allocation span encoder for pre-decorrelated residual buffers (`mode = 0` direct, no scratch buffer needed).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int CompressPredecorrelatedSpan(ReadOnlySpan<byte> residuals, Span<byte> destination)
+    {
+        return EncodeResidualsToSpanCore(residuals, 0, residuals, destination);
+    }
+
+    /// <summary>
+    /// Convenience block wrapper backed by <see cref="ArrayPool{T}.Shared"/> for intermediate buffers.
     /// </summary>
     public static byte[] CompressBlock(ReadOnlySpan<byte> src)
     {
-        int nonEmpty = ((0 - src.Length) >> 31) & 1;
-        return CompressEntries[nonEmpty](src);
+        int len = src.Length;
+        byte[] rentedScratch = ArrayPool<byte>.Shared.Rent(Math.Max(16, len));
+        byte[] rentedOut = ArrayPool<byte>.Shared.Rent(GetMaxCompressedLength(len));
+        try
+        {
+            int written = CompressSpan(src, rentedOut, rentedScratch);
+            return rentedOut.AsSpan(0, written).ToArray();
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rentedScratch);
+            ArrayPool<byte>.Shared.Return(rentedOut);
+        }
     }
 
     /// <summary>
-    /// Single-pass table-dispatched native entropy encoder for pre-decorrelated residual buffers (`mode = 0` direct).
+    /// Convenience block wrapper for pre-decorrelated residuals backed by <see cref="ArrayPool{T}.Shared"/>.
     /// </summary>
     public static byte[] CompressPredecorrelatedResiduals(ReadOnlySpan<byte> residuals)
     {
-        return EncodeResidualsCore(residuals, 0, residuals);
+        int len = residuals.Length;
+        byte[] rentedOut = ArrayPool<byte>.Shared.Rent(GetMaxCompressedLength(len));
+        try
+        {
+            int written = CompressPredecorrelatedSpan(residuals, rentedOut);
+            return rentedOut.AsSpan(0, written).ToArray();
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rentedOut);
+        }
     }
 
     // -------------------------------------------------------------------------
-    // 8-Lane (64-Bit SWAR) Table-Dispatched Decoder
+    // Zero-Allocation In-Place 8-Lane (64-Bit SWAR) Table-Dispatched Decoder
     // -------------------------------------------------------------------------
+
+    private delegate ulong SafeUInt64ReaderAction(ReadOnlySpan<byte> compressed, int inPos);
+    private static readonly SafeUInt64ReaderAction[] SafeUInt64Readers =
+    [
+        ReadUInt64FastAtLeast8,
+        ReadUInt64StackPaddedUnder8
+    ];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong ReadUInt64FastAtLeast8(ReadOnlySpan<byte> compressed, int inPos)
+    {
+        int safePos = Math.Min(inPos, compressed.Length - 8);
+        int shiftBits = (inPos - safePos) << 3;
+        return BinaryPrimitives.ReadUInt64LittleEndian(compressed.Slice(safePos, 8)) >> shiftBits;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong ReadUInt64StackPaddedUnder8(ReadOnlySpan<byte> compressed, int inPos)
+    {
+        Span<byte> pad16 = stackalloc byte[16];
+        pad16.Clear();
+        compressed.CopyTo(pad16);
+        return BinaryPrimitives.ReadUInt64LittleEndian(pad16.Slice(inPos, 8));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ulong SafeReadUInt64LittleEndian(ReadOnlySpan<byte> compressed, int inPos)
+    {
+        int isUnder8 = ((compressed.Length - 8) >> 31) & 1;
+        return SafeUInt64Readers[isUnder8](compressed, inPos);
+    }
 
     private delegate void LaneDecodeAction(
         int code, ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> trans, ref int outPos);
@@ -407,7 +479,7 @@ public static class CuboctUniversalArchiver
     private static void DecodeLaneCode1to7BitPacked(
         int b, ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> trans, ref int outPos)
     {
-        ulong packed = BinaryPrimitives.ReadUInt64LittleEndian(compressed.Slice(inPos, 8));
+        ulong packed = SafeReadUInt64LittleEndian(compressed, inPos);
         inPos += b;
         ulong mask = 0xFFUL >> (8 - b);
         ulong u8 = (packed & mask)
@@ -427,7 +499,7 @@ public static class CuboctUniversalArchiver
     private static void DecodeLaneCode8Raw64(
         int code, ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> trans, ref int outPos)
     {
-        ulong raw8 = BinaryPrimitives.ReadUInt64LittleEndian(compressed.Slice(inPos, 8));
+        ulong raw8 = SafeReadUInt64LittleEndian(compressed, inPos);
         inPos += 8;
         BinaryPrimitives.WriteUInt64LittleEndian(trans.Slice(outPos, 8), raw8);
         outPos += 8;
@@ -459,8 +531,9 @@ public static class CuboctUniversalArchiver
     {
         int extraPairs = compressed[inPos++];
         int zeroBytes = (1 + extraPairs) << 4;
-        trans.Slice(outPos, zeroBytes).Clear();
-        outPos += zeroBytes;
+        int avail = Math.Min(zeroBytes, trans.Length - outPos);
+        trans.Slice(outPos, avail).Clear();
+        outPos += avail;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -473,68 +546,194 @@ public static class CuboctUniversalArchiver
         LaneDecoders[code1](code1, compressed, ref inPos, trans, ref outPos);
     }
 
-    private delegate byte[] DecompressEntryAction(ReadOnlySpan<byte> compressedBlock, int uncompressedLength);
-    private static readonly DecompressEntryAction[] DecompressEntries =
-    [
-        DecompressEmptyBlock,
-        DecompressRawPassthroughBlock,
-        DecompressTokensMode0,
-        DecompressTokensWithInverseVerlet
-    ];
+    private delegate void TailDecodeAction(
+        ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> destination, int alignedOutLen, int tailLen);
+
+    private static readonly TailDecodeAction[] TailDecoders = [DecodeTailNoOp, DecodeTail1To15Bytes];
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] DecompressEmptyBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength) => [];
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static byte[] DecompressRawPassthroughBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
-        => compressedBlock.Slice(1, uncompressedLength).ToArray();
-
-    private static byte[] DecodeTokenStreamCore(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    private static void DecodeTailNoOp(
+        ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> destination, int alignedOutLen, int tailLen)
     {
-        // Pad compressed buffer by 8 bytes so 64-bit ReadUInt64LittleEndian is always safe at stream end
-        byte[] paddedIn = GC.AllocateUninitializedArray<byte>(compressedBlock.Length + 8);
-        compressedBlock.CopyTo(paddedIn);
-        ReadOnlySpan<byte> inSpan = paddedIn;
+    }
 
-        int alignedOutLen = (uncompressedLength + 15) & ~15;
-        byte[] transPadded = GC.AllocateUninitializedArray<byte>(alignedOutLen);
-        Span<byte> tSpan = transPadded;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void DecodeTail1To15Bytes(
+        ReadOnlySpan<byte> compressed, ref int inPos, Span<byte> destination, int alignedOutLen, int tailLen)
+    {
+        Span<byte> pad16 = stackalloc byte[16];
+        pad16.Clear();
+        int localOut = 0;
+        byte ctrl = compressed[inPos++];
+        int isNonZero = ((0 - ctrl) >> 31) & 1;
+        PairDecoders[isNonZero](ctrl, compressed, ref inPos, pad16, ref localOut);
+        pad16.Slice(0, tailLen).CopyTo(destination.Slice(alignedOutLen, tailLen));
+    }
 
+    private static void DecodeTokensDirectlyToSpan(ReadOnlySpan<byte> compressedBlock, Span<byte> destination)
+    {
+        int uncompressedLength = destination.Length;
+        int alignedOutLen = uncompressedLength & ~15;
         int inPos = 1;
         int outPos = 0;
 
-        while (outPos < uncompressedLength)
+        while (outPos < alignedOutLen)
         {
-            byte ctrl = inSpan[inPos++];
+            byte ctrl = compressedBlock[inPos++];
             int isNonZero = ((0 - ctrl) >> 31) & 1;
-            PairDecoders[isNonZero](ctrl, inSpan, ref inPos, tSpan, ref outPos);
+            PairDecoders[isNonZero](ctrl, compressedBlock, ref inPos, destination, ref outPos);
         }
 
-        return transPadded.AsSpan(0, uncompressedLength).ToArray();
+        int tailLen = uncompressedLength - alignedOutLen;
+        int hasTail = ((0 - (uncompressedLength - outPos)) >> 31) & 1;
+        TailDecoders[hasTail](compressedBlock, ref inPos, destination, alignedOutLen, tailLen);
     }
 
-    private static byte[] DecompressTokensMode0(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
-        => DecodeTokenStreamCore(compressedBlock, uncompressedLength);
+    private delegate int DecompressSpanEntryAction(ReadOnlySpan<byte> compressedBlock, Span<byte> destination);
+    private static readonly DecompressSpanEntryAction[] DecompressSpanEntries =
+    [
+        DecompressEmptySpan,
+        DecompressRawPassthroughSpan,
+        DecompressTokensMode0Span,
+        DecompressTokensWithInPlaceVerletSpan
+    ];
 
-    private static byte[] DecompressTokensWithInverseVerlet(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int DecompressEmptySpan(ReadOnlySpan<byte> compressedBlock, Span<byte> destination) => 0;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int DecompressRawPassthroughSpan(ReadOnlySpan<byte> compressedBlock, Span<byte> destination)
     {
-        byte[] trans = DecodeTokenStreamCore(compressedBlock, uncompressedLength);
-        byte[] dst = GC.AllocateUninitializedArray<byte>(uncompressedLength);
-        ApplyInversePredictor(trans, dst, compressedBlock[0]);
-        return dst;
+        compressedBlock.Slice(1, destination.Length).CopyTo(destination);
+        return destination.Length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int DecompressTokensMode0Span(ReadOnlySpan<byte> compressedBlock, Span<byte> destination)
+    {
+        DecodeTokensDirectlyToSpan(compressedBlock, destination);
+        return destination.Length;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int DecompressTokensWithInPlaceVerletSpan(ReadOnlySpan<byte> compressedBlock, Span<byte> destination)
+    {
+        DecodeTokensDirectlyToSpan(compressedBlock, destination);
+        // ReconstructVerletBuffer operates 100% in-place on `destination` with zero scratch buffer!
+        ApplyInversePredictor(destination, destination, compressedBlock[0]);
+        return destination.Length;
     }
 
     /// <summary>
-    /// Table-dispatched branchless native entropy decoder (zero conditional branching statements) paired with
-    /// <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/>.
+    /// Zero-allocation in-place span decoder (`0` bytes allocated on the managed heap, no scratch buffer required).
+    /// Decodes directly into <paramref name="destination"/> (whose length must equal the uncompressed block length).
     /// </summary>
-    public static byte[] DecompressBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int DecompressSpan(ReadOnlySpan<byte> compressedBlock, Span<byte> destination)
     {
+        int uncompressedLength = destination.Length;
         int nonEmpty = ((0 - uncompressedLength) >> 31) & 1;
         byte mode = compressedBlock[0];
         int isRaw = 1 / ((mode ^ 0xFF) + 1);
         int hasPredictor = ((0 - mode) >> 31) & 1 & (1 - isRaw);
         int entryIdx = nonEmpty * (1 + (1 - isRaw) * (1 + hasPredictor));
-        return DecompressEntries[entryIdx](compressedBlock, uncompressedLength);
+        return DecompressSpanEntries[entryIdx](compressedBlock, destination);
+    }
+
+    public static byte[] DecompressBlock(ReadOnlySpan<byte> compressedBlock, int uncompressedLength)
+    {
+        byte[] dst = GC.AllocateUninitializedArray<byte>(uncompressedLength);
+        DecompressSpan(compressedBlock, dst);
+        return dst;
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-Gigabyte (>14 GB) Zero-Allocation Streaming Pipeline
+    // -------------------------------------------------------------------------
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ReadFullChunk(Stream input, Span<byte> buffer)
+    {
+        int total = 0;
+        int lastRead = 1;
+        while (total < buffer.Length && lastRead > 0)
+        {
+            lastRead = input.Read(buffer.Slice(total));
+            total += Math.Max(0, lastRead);
+        }
+        return total;
+    }
+
+    /// <summary>
+    /// Streams an arbitrary-size input stream (14+ GiB, unlimited 64-bit length) through <see cref="CompressSpan"/>
+    /// in fixed-size chunks using a single rented <see cref="ArrayPool{T}.Shared"/> buffer triple (`0` per-chunk GC allocations).
+    /// </summary>
+    public static (long TotalInputBytes, long TotalCompressedBytes) CompressStream(
+        Stream input, Stream output, int chunkSize = 4 * 1024 * 1024)
+    {
+        byte[] rawBuf = ArrayPool<byte>.Shared.Rent(chunkSize);
+        byte[] scratchBuf = ArrayPool<byte>.Shared.Rent(chunkSize);
+        byte[] compBuf = ArrayPool<byte>.Shared.Rent(GetMaxCompressedLength(chunkSize) + 16);
+
+        long totalIn = 0;
+        long totalOut = 0;
+        try
+        {
+            int readBytes = ReadFullChunk(input, rawBuf.AsSpan(0, chunkSize));
+            while (readBytes > 0)
+            {
+                int compLen = CompressSpan(
+                    rawBuf.AsSpan(0, readBytes),
+                    compBuf.AsSpan(8),
+                    scratchBuf.AsSpan(0, readBytes));
+                BinaryPrimitives.WriteInt32LittleEndian(compBuf.AsSpan(0, 4), readBytes);
+                BinaryPrimitives.WriteInt32LittleEndian(compBuf.AsSpan(4, 4), compLen);
+                output.Write(compBuf.AsSpan(0, 8 + compLen));
+                totalIn += readBytes;
+                totalOut += 8 + compLen;
+                readBytes = ReadFullChunk(input, rawBuf.AsSpan(0, chunkSize));
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rawBuf);
+            ArrayPool<byte>.Shared.Return(scratchBuf);
+            ArrayPool<byte>.Shared.Return(compBuf);
+        }
+        return (totalIn, totalOut);
+    }
+
+    /// <summary>
+    /// Decompresses an arbitrary-size multi-gigabyte stream produced by <see cref="CompressStream"/>
+    /// in-place via <see cref="DecompressSpan"/> using a single rented <see cref="ArrayPool{T}.Shared"/> buffer pair (`0` per-chunk GC allocations).
+    /// </summary>
+    public static long DecompressStream(
+        Stream input, Stream output, int maxChunkSize = 4 * 1024 * 1024)
+    {
+        byte[] rawBuf = ArrayPool<byte>.Shared.Rent(maxChunkSize);
+        byte[] compBuf = ArrayPool<byte>.Shared.Rent(GetMaxCompressedLength(maxChunkSize) + 16);
+        Span<byte> hdr8 = stackalloc byte[8];
+
+        long totalOut = 0;
+        try
+        {
+            int hdrRead = ReadFullChunk(input, hdr8);
+            while (hdrRead == 8)
+            {
+                int origLen = BinaryPrimitives.ReadInt32LittleEndian(hdr8.Slice(0, 4));
+                int compLen = BinaryPrimitives.ReadInt32LittleEndian(hdr8.Slice(4, 4));
+                _ = ReadFullChunk(input, compBuf.AsSpan(0, compLen));
+                DecompressSpan(compBuf.AsSpan(0, compLen), rawBuf.AsSpan(0, origLen));
+                output.Write(rawBuf.AsSpan(0, origLen));
+                totalOut += origLen;
+                hdrRead = ReadFullChunk(input, hdr8);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rawBuf);
+            ArrayPool<byte>.Shared.Return(compBuf);
+        }
+        return totalOut;
     }
 }
