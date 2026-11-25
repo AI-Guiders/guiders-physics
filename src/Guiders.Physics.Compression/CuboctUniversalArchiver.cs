@@ -4,6 +4,8 @@ using System.Buffers.Binary;
 using System.IO;
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using Guiders.Physics.Core;
 
 namespace Guiders.Physics.Compression;
@@ -101,10 +103,73 @@ public static class CuboctUniversalArchiver
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ComputeVerletResidualBuffer(
+        ReadOnlySpan<byte> src, Span<byte> dst, int stride, byte maskOrder1, byte maskOrder2)
+    {
+        int len = src.Length;
+        int h1 = Math.Min(stride, len);
+        int h2 = Math.Min(2 * stride, len);
+
+        src.Slice(0, h1).CopyTo(dst);
+
+        for (int k = h1; k < h2; k++)
+        {
+            dst[k] = (byte)(src[k] - (src[k - stride] & maskOrder1));
+        }
+
+        int idx = h2;
+        ref byte rSrc = ref MemoryMarshal.GetReference(src);
+        ref byte rDst = ref MemoryMarshal.GetReference(dst);
+        var vM1 = Vector256.Create(maskOrder1);
+        var vM2 = Vector256.Create(maskOrder2);
+
+        for (; idx <= len - 32; idx += 32)
+        {
+            var vCur = Vector256.LoadUnsafe(ref rSrc, (nuint)idx);
+            var vP1  = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - stride));
+            var vP2  = Vector256.LoadUnsafe(ref rSrc, (nuint)(idx - 2 * stride));
+            var vPred = ((vP1 & vM1) + (vP1 & vM2)) - (vP2 & vM2);
+            (vCur - vPred).StoreUnsafe(ref rDst, (nuint)idx);
+        }
+
+        for (; idx < len; idx++)
+        {
+            byte p1 = src[idx - stride];
+            byte p2 = src[idx - 2 * stride];
+            byte pred = (byte)(((p1 & maskOrder1) + (p1 & maskOrder2)) - (p2 & maskOrder2));
+            dst[idx] = (byte)(src[idx] - pred);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ReconstructVerletBuffer(
+        ReadOnlySpan<byte> residual, Span<byte> dst, int stride, byte maskOrder1, byte maskOrder2)
+    {
+        int len = residual.Length;
+        int h1 = Math.Min(stride, len);
+        int h2 = Math.Min(2 * stride, len);
+
+        residual.Slice(0, h1).CopyTo(dst);
+
+        for (int k = h1; k < h2; k++)
+        {
+            dst[k] = (byte)(residual[k] + (dst[k - stride] & maskOrder1));
+        }
+
+        for (int idx = h2; idx < len; idx++)
+        {
+            byte p1 = dst[idx - stride];
+            byte p2 = dst[idx - 2 * stride];
+            byte pred = (byte)(((p1 & maskOrder1) + (p1 & maskOrder2)) - (p2 & maskOrder2));
+            dst[idx] = (byte)(residual[idx] + pred);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ApplyForwardPredictor(ReadOnlySpan<byte> src, Span<byte> dst, int mode)
     {
         int safeMode = Math.Clamp(mode, 0, 4);
-        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+        ComputeVerletResidualBuffer(
             src, dst, ModeStrides[safeMode], ModeMask1[safeMode], ModeMask2[safeMode]);
     }
 
@@ -112,7 +177,7 @@ public static class CuboctUniversalArchiver
     public static void ApplyInversePredictor(ReadOnlySpan<byte> src, Span<byte> dst, int mode)
     {
         int safeMode = Math.Clamp(mode, 0, 4);
-        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+        ReconstructVerletBuffer(
             src, dst, ModeStrides[safeMode], ModeMask1[safeMode], ModeMask2[safeMode]);
     }
 

@@ -17,8 +17,8 @@ namespace Guiders.Physics.MediaCodec;
 ///     (requires zero scratch buffers and allocates `0` bytes on the managed heap!),
 ///   - Sub-Green reversible color decorrelation (`R - G`, `G`, `B - G`),
 ///   - Intra-frame (`stride = 3`) and inter-frame (`stride = frameBytes`) SIMD Verlet prediction via
-///     <see cref="CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer"/> and
-///     <see cref="CuboctahedronAutomatonKernel.ReconstructVerletBuffer"/>.
+///     <see cref="CuboctUniversalArchiver.ComputeVerletResidualBuffer"/> and
+///     <see cref="CuboctUniversalArchiver.ReconstructVerletBuffer"/>.
 /// </summary>
 public static class CuboctMediaCodec
 {
@@ -124,10 +124,10 @@ public static class CuboctMediaCodec
             subGreen[i + 2] = (byte)(rgb24Frames[i + 2] - g);
         }
 
-        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+        CuboctUniversalArchiver.ComputeVerletResidualBuffer(
             subGreen, residuals, frameBytes, 0xFF, 0x00);
 
-        CuboctahedronAutomatonKernel.ComputeVerletResidualBuffer(
+        CuboctUniversalArchiver.ComputeVerletResidualBuffer(
             subGreen.Slice(0, frameBytes), residuals.Slice(0, frameBytes), 3, 0xFF, 0x00);
 
         return CuboctUniversalArchiver.CompressPredecorrelatedSpan(residuals, destination);
@@ -148,11 +148,11 @@ public static class CuboctMediaCodec
         CuboctUniversalArchiver.DecompressSpan(compressedVideo, dst);
 
         // 2. Reconstruct Frame 0 in-place from intra-frame pixel-stride (stride = 3) residuals
-        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+        CuboctUniversalArchiver.ReconstructVerletBuffer(
             dst.Slice(0, frameBytes), dst.Slice(0, frameBytes), 3, 0xFF, 0x00);
 
         // 3. Reconstruct all frames 0..frameCount-1 in-place from inter-frame (stride = frameBytes) residuals
-        CuboctahedronAutomatonKernel.ReconstructVerletBuffer(
+        CuboctUniversalArchiver.ReconstructVerletBuffer(
             dst, dst, frameBytes, 0xFF, 0x00);
 
         // 4. Inverse Sub-Green color transform in-place: (dR + G, G, dB + G)

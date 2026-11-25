@@ -337,17 +337,17 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Type I: Unmatched open-loop T-cascade (System_1 -> System_2 -> System_3 -> System_4 with impedance ratio 2 at each boundary):
         // Even a 250-tick impulse decays 250 -> 125 -> 62 -> 31 (< 41 Heisenberg deadband!) -> 0 (100% information loss at System_4!)
         Ring9 s1 = new(250);
-        Ring9 s2 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s1, Ring9.C0OverCSq);
-        Ring9 s3 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s2, Ring9.C0OverCSq);
-        Ring9 s4 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(s3, Ring9.C0OverCSq);
+        Ring9 s2 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(s1, Ring9.C0OverCSq);
+        Ring9 s3 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(s2, Ring9.C0OverCSq);
+        Ring9 s4 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(s3, Ring9.C0OverCSq);
         Assert.Equal(new Ring9(125), s2);
         Assert.Equal(new Ring9(62),  s3);
         Assert.Equal(Ring9.Zero,     s4);
 
         // Type II: Impedance-matched catalytic resonance cascade (A_coh = 139, unit impedance ratio 1 across all 4 stages):
-        Ring9 m2 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(Ring9.CollapsePhi, Ring9.MuVac);
-        Ring9 m3 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(m2, Ring9.MuVac);
-        Ring9 m4 = CuboctahedronAutomatonKernel.CascadeAttenuatedStage9(m3, Ring9.MuVac);
+        Ring9 m2 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(Ring9.CollapsePhi, Ring9.MuVac);
+        Ring9 m3 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(m2, Ring9.MuVac);
+        Ring9 m4 = KitchenBenchDigitalTwin.CascadeAttenuatedStage9(m3, Ring9.MuVac);
         Assert.Equal(Ring9.CollapsePhi, m4);
 
         // Type III: Sub-threshold coherent M-channel inside [-40, +40] (81 states: 0 thermal quanta n_E == 0 and 100% lossless 4-stage rotator relay!):
@@ -357,19 +357,19 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
             Ring9 neg = -pos;
             Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(pos));
             Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.HeisenbergEnergyQuanta(neg));
-            Assert.Equal(pos, CuboctahedronAutomatonKernel.CascadeSubthresholdRotatorRelay4Stage9(pos));
-            Assert.Equal(neg, CuboctahedronAutomatonKernel.CascadeSubthresholdRotatorRelay4Stage9(neg));
+            Assert.Equal(pos, KitchenBenchDigitalTwin.CascadeSubthresholdRotatorRelay4Stage9(pos));
+            Assert.Equal(neg, KitchenBenchDigitalTwin.CascadeSubthresholdRotatorRelay4Stage9(neg));
         }
 
         // Type IV: Closed-loop pre-compensated drive cancels arbitrary multi-stage hardware jitters (UART, MOSFET, Coil, Dish wall) across all 512 target phases!
         Ring9 jUart = new(17), jMosfet = -new Ring9(43), jCoil = new(29), jWall = new(58);
-        Assert.NotEqual(Ring9.CollapsePhi, CuboctahedronAutomatonKernel.CascadeUncompensatedArrival9(Ring9.CollapsePhi, jUart, jMosfet, jCoil, jWall));
+        Assert.NotEqual(Ring9.CollapsePhi, KitchenBenchDigitalTwin.CascadeUncompensatedArrival9(Ring9.CollapsePhi, jUart, jMosfet, jCoil, jWall));
 
         for (ushort t = 0; t < 512; t++)
         {
             Ring9 target = new(t);
-            Ring9 drive = CuboctahedronAutomatonKernel.CascadePrecompensatedDrive9(target, jUart, jMosfet, jCoil, jWall);
-            Ring9 arrived = CuboctahedronAutomatonKernel.CascadeUncompensatedArrival9(drive, jUart, jMosfet, jCoil, jWall);
+            Ring9 drive = KitchenBenchDigitalTwin.CascadePrecompensatedDrive9(target, jUart, jMosfet, jCoil, jWall);
+            Ring9 arrived = KitchenBenchDigitalTwin.CascadeUncompensatedArrival9(drive, jUart, jMosfet, jCoil, jWall);
             Assert.Equal(target, arrived);
         }
 
@@ -415,8 +415,8 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
             Ring9 s0 = new(k);
             Ring9 s1 = s0 + Ring9.ZSilicon14;
             Ring9 s2 = s0 + Ring9.ZQuartz30;
-            var (y0, y1, y2) = CuboctahedronAutomatonKernel.ApplyNilpotentPerturbation3(s0, s1, s2);
-            var (r0, r1, r2) = CuboctahedronAutomatonKernel.CalibrateFiniteNeumannOrder2(y0, y1, y2);
+            var (y0, y1, y2) = KitchenBenchDigitalTwin.ApplyNilpotentPerturbation3(s0, s1, s2);
+            var (r0, r1, r2) = KitchenBenchDigitalTwin.CalibrateFiniteNeumannOrder2(y0, y1, y2);
             Assert.Equal(s0, r0);
             Assert.Equal(s1, r1);
             Assert.Equal(s2, r2);
@@ -471,9 +471,9 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
             Ring9 skewK = new Ring9(k) * Ring9.DOutVertex;
             Ring9 thermalDrift = new(4);
             Ring9 dishWall = Ring9.Zero; // SiO2 glass wall matches N2 + O2 = 30
-            Ring9 fpgaRegK = CuboctahedronAutomatonKernel.ComputeKitchenBenchPrecompensatedBeamPhase9(
+            Ring9 fpgaRegK = KitchenBenchDigitalTwin.ComputeKitchenBenchPrecompensatedBeamPhase9(
                 Ring9.CollapsePhi, Ring9.BezoutInv41, Ring9.KP, thermalDrift, dishWall, skewK);
-            Ring9 arrivedK = CuboctahedronAutomatonKernel.ComputeKitchenBenchArrivedDishPhase9(
+            Ring9 arrivedK = KitchenBenchDigitalTwin.ComputeKitchenBenchArrivedDishPhase9(
                 fpgaRegK, Ring9.BezoutInv41, Ring9.KP, thermalDrift, dishWall, skewK);
             Assert.Equal(Ring9.CollapsePhi, arrivedK);
         }
@@ -654,18 +654,18 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
     [Fact]
     public void Core_13_FullMultiscaleKitchenBenchClosure512AndTelemetryRecovery_MatchesLeanAndHardware()
     {
-        Assert.Equal(new Ring9(202), CuboctahedronAutomatonKernel.ComputeWheelerAirCoreDenominator9(Ring9.ModBits, Ring9.NLinks, Ring9.DInSquare));
-        Assert.Equal(new Ring9(228), CuboctahedronAutomatonKernel.ComputeColdStartFpgaPrecompPhase9());
-        Assert.Equal(new Ring9(17), CuboctahedronAutomatonKernel.ComputeFresnelQuartzWaterSum9());
-        Assert.Equal((Ring9.DOutVertex * Ring9.DOutVertex) * new Ring9(17), CuboctahedronAutomatonKernel.ComputeStasisMultiplierMod512());
-        Assert.Equal(Ring9.ZSilicon14 * Ring9.NPhi, CuboctahedronAutomatonKernel.ComputeSucroseDisaccharideShell9());
+        Assert.Equal(new Ring9(202), KitchenBenchDigitalTwin.ComputeWheelerAirCoreDenominator9(Ring9.ModBits, Ring9.NLinks, Ring9.DInSquare));
+        Assert.Equal(new Ring9(228), KitchenBenchDigitalTwin.ComputeColdStartFpgaPrecompPhase9());
+        Assert.Equal(new Ring9(17), KitchenBenchDigitalTwin.ComputeFresnelQuartzWaterSum9());
+        Assert.Equal((Ring9.DOutVertex * Ring9.DOutVertex) * new Ring9(17), KitchenBenchDigitalTwin.ComputeStasisMultiplierMod512());
+        Assert.Equal(Ring9.ZSilicon14 * Ring9.NPhi, KitchenBenchDigitalTwin.ComputeSucroseDisaccharideShell9());
 
         for (ushort phi = 0; phi < 512; phi++)
         {
             Ring9 targetPhi = new(phi);
             var cell = VerletCell72.Create(Ring9.MuVac, targetPhi, Ring9.Zero, Ring9.MuVac, Ring9.Zero, Ring9.Zero);
             var sensors = CuboctahedronAutomatonKernel.ReadCellSensors(cell);
-            Ring9 recPhi = CuboctahedronAutomatonKernel.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
+            Ring9 recPhi = KitchenBenchDigitalTwin.RecoverRingPhaseFromHydrophoneAndChiralCurrent9(
                 Ring9.MuVac, Ring9.MuVac, sensors.AcousticWave, sensors.ReactionCurrent);
             Assert.Equal(targetPhi, recPhi);
         }
@@ -694,8 +694,8 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Verify 4-channel nilpotent holonomic tomograph (2*(I_4 + N_nil), N_nil^3 == 0) on Bus36
         // de-mixing (s0 = Z(Si)=14, s1 = Z(O2)=16, s2 = Z(SiO2)=30, s3 = Z(SiO4)=46):
         Bus36 clean4 = new(Ring9.ZSilicon14, new Ring9(16), new Ring9(30), new Ring9(46));
-        Bus36 mixed4 = CuboctahedronAutomatonKernel.NilpotentTomographForward2xBus36(clean4);
-        Bus36 rec4 = CuboctahedronAutomatonKernel.NilpotentTomographInverse24xBus36(mixed4);
+        Bus36 mixed4 = KitchenBenchDigitalTwin.NilpotentTomographForward2xBus36(clean4);
+        Bus36 rec4 = KitchenBenchDigitalTwin.NilpotentTomographInverse24xBus36(mixed4);
         Assert.Equal(clean4, rec4);
 
         // Verify Bus36 pre-flight 12-coil continuity impedance decomposition:
@@ -704,11 +704,11 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         for (ushort nCoils = 0; nCoils <= 12; nCoils++)
         {
             Ring9 activeCount = new(nCoils);
-            Bus36 dBus = CuboctahedronAutomatonKernel.ComputePreflightCoilImpedanceBus36(activeCount);
+            Bus36 dBus = KitchenBenchDigitalTwin.ComputePreflightCoilImpedanceBus36(activeCount);
             Assert.Equal(Ring9.Zero, dBus.L0);
             Assert.Equal(new Ring9(16), dBus.L1);
             Assert.Equal(new Ring9((ushort)(2 * (nCoils + 1))), dBus.L2);
-            Assert.Equal(activeCount, CuboctahedronAutomatonKernel.RecoverActiveCoilsFromImpedanceBus36(dBus));
+            Assert.Equal(activeCount, KitchenBenchDigitalTwin.RecoverActiveCoilsFromImpedanceBus36(dBus));
         }
 
         // Verify all 6 recipe shells (Gate #0 BZ 60, Cutlet 70, Bread 86, Vitamin C 92, Cappuccino 102, Lipid 144)
@@ -725,24 +725,24 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 3D Gorkov-Bjerknes trap Hessian trace (2 * 12 = 24 = 8 + 8 + 8)
         // and 90 mm Petri dish (R = 45 mm) Bjerknes quarter-wave rings (45 / 7 = 6 = NSq, 45 % 7 = 3 = D):
-        Assert.Equal(Ring9.C0OverCSq * Ring9.NLinks, CuboctahedronAutomatonKernel.ComputeGorkovTrapHessianTrace9(Ring9.NLinks));
-        var bjerknes = CuboctahedronAutomatonKernel.ComputePetriDishBjerknesRings9();
+        Assert.Equal(Ring9.C0OverCSq * Ring9.NLinks, KitchenBenchDigitalTwin.ComputeGorkovTrapHessianTrace9(Ring9.NLinks));
+        var bjerknes = KitchenBenchDigitalTwin.ComputePetriDishBjerknesRings9();
         Assert.Equal(Ring9.NSq, bjerknes.ConcentricRingsCount6);
         Assert.Equal(Ring9.D, bjerknes.WallClearanceMm3);
 
         // Verify cavitation-free 12-beam ultrasonic focusing (256 / 12 = 21 = Seam21, n_E(21) = 0 at glass wall,
         // coherent focal current 12 * 21 = 252 = 256 - 4 > 128) and 4-pole XY Euler chiral quadrupole torque:
-        var subCav = CuboctahedronAutomatonKernel.Compute12BeamSubcavitationFocus9();
+        var subCav = KitchenBenchDigitalTwin.Compute12BeamSubcavitationFocus9();
         Assert.Equal(Ring9.SeamTicks, subCav.SingleRayPhase21);
         Assert.Equal(Ring9.Zero, subCav.SingleRayWallPhotons0);
         Assert.Equal(Ring9.PhiPauli - Ring9.DInSquare, subCav.Coherent12BeamFocalCurrent252);
-        Assert.Equal(Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.QSquare));
-        Assert.Equal(-Ring9.QSquare, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.D * Ring9.QSquare));
-        Assert.Equal(Ring9.Zero, CuboctahedronAutomatonKernel.ComputeEulerQuadrupoleChiralTorque9(Ring9.PhiPauli));
+        Assert.Equal(Ring9.QSquare, KitchenBenchDigitalTwin.ComputeEulerQuadrupoleChiralTorque9(Ring9.QSquare));
+        Assert.Equal(-Ring9.QSquare, KitchenBenchDigitalTwin.ComputeEulerQuadrupoleChiralTorque9(Ring9.D * Ring9.QSquare));
+        Assert.Equal(Ring9.Zero, KitchenBenchDigitalTwin.ComputeEulerQuadrupoleChiralTorque9(Ring9.PhiPauli));
 
         // Verify 30-Section Thermodynamic Ladder (12 C [+15] -> 27 C [+41 = DPhiDisc] -> 68 C [+13 = NPhi] -> 81 C)
         // and 180 W * 52 min / 60 min = 156 = 12 * 13 Wh energy closure:
-        var therm = CuboctahedronAutomatonKernel.ComputeKitchenBenchThermalLadderAndEnergy9();
+        var therm = KitchenBenchDigitalTwin.ComputeKitchenBenchThermalLadderAndEnergy9();
         Assert.Equal(Ring9.D * Ring9.DOutEdge, therm.WarmKitchen27C - therm.DewPoint12C);
         Assert.Equal(Ring9.DPhiDisc, therm.Maillard68C - therm.WarmKitchen27C);
         Assert.Equal(Ring9.NPhi, therm.Cutoff81C - therm.Maillard68C);
@@ -755,7 +755,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 32-Section Half-Pauli Closure (Maillard pyrazine C4H4N2 = 42 = S_2(3),
         // peptide bond -CO-NH- = 22 = Z(CO2), hydrated peptide = 32 = K_P/2, audible subharmonic 32,768 = Bus36(0,64,0,0)):
-        var maillard32 = CuboctahedronAutomatonKernel.ComputeMaillardAromaAndAudibleSubharmonic9();
+        var maillard32 = KitchenBenchDigitalTwin.ComputeMaillardAromaAndAudibleSubharmonic9();
         Assert.Equal(new Ring9(42), maillard32.PyrazineAroma42);
         Assert.Equal(new Ring9(22), maillard32.PeptideBond22);
         Assert.Equal(new Ring9(32), maillard32.HydratedPeptide32);
@@ -763,7 +763,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 36-Section Bus36 Full Closure (Water dielectric 80 -> 64 = K_P at 68 C,
         // Umami glutamic acid Z=78 = 6*13, Cysteine Z=64 = K_P, Cystine disulfide Z=126 = 2*63, Section count = 36 = 4*9):
-        var full36 = CuboctahedronAutomatonKernel.ComputeBench36SectionFullClosure9();
+        var full36 = KitchenBenchDigitalTwin.ComputeBench36SectionFullClosure9();
         Assert.Equal(new Ring9(80), full36.WaterDielectric20C_80);
         Assert.Equal(Ring9.KP, full36.WaterDielectric68C_64);
         Assert.Equal(Ring9.NSq * Ring9.NPhi, full36.UmamiGlutamicAcid78);
@@ -777,7 +777,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         Assert.Equal(Ring9.KP, Ring9.KP.ProjC);
         Assert.Equal(Ring9.KP, Ring9.KP.ProjS);
         Assert.Equal(Ring9.QSquare, Ring9.KP.ProjC + Ring9.KP.ProjS);
-        var full42 = CuboctahedronAutomatonKernel.ComputeBench42SecondSphereClosure9();
+        var full42 = KitchenBenchDigitalTwin.ComputeBench42SecondSphereClosure9();
         Assert.Equal(new Ring9(94), full42.TheobromineChocolate94);
         Assert.Equal(new Ring9(100), full42.CitricAcidNectar100);
         Assert.Equal(new Ring9(48), full42.LacticAcidMilk48);
@@ -789,7 +789,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Verify 55-Section |B_2(3)| Two-Shell Ball Full Closure (Mains peak 312 = 24*13 V,
         // 20 canonical L-amino acids, Aspartate Z=70=Heme, Histidine Z=82=81+1, Tryptophan Z=108=12*9 bit bus,
         // 49 = 7^2 MuJoCo geoms, total sections = 55 = |B_2(3)| = Z(Cs)):
-        var full55 = CuboctahedronAutomatonKernel.ComputeBench55TwoShellBallClosure9();
+        var full55 = KitchenBenchDigitalTwin.ComputeBench55TwoShellBallClosure9();
         Assert.Equal(new Ring9(312), full55.MainsPeak312V);
         Assert.Equal(new Ring9(20), full55.CanonicalAminoAcids20);
         Assert.Equal(new Ring9(70), full55.AspartateHeme70);
@@ -800,7 +800,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 72-Section VerletCell72 Full Self-Closure (Numbers 56..72: hot coil lags 58, 59, 61, 62..66,
         // hydrogen bond modulus 63 = 7*9, stasis holding temp 65 = 5*13, and 72 = 8*9 = dim(VerletCell72)):
-        var full72 = CuboctahedronAutomatonKernel.ComputeBench72VerletCellClosure9();
+        var full72 = KitchenBenchDigitalTwin.ComputeBench72VerletCellClosure9();
         Assert.Equal(new Ring9(58), full72.HotCoilLag58);
         Assert.Equal(new Ring9(59), full72.MidCoilLag59);
         Assert.Equal(new Ring9(61), full72.EarlyCoilLag61);
@@ -813,7 +813,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Verify 81-Section |E_Heis(3)| = 3^4 Full Self-Closure (Numbers 73..81: frame radius 73=64+9,
         // optocoupler delay 74=2*37 ns, collagen 75=3*25, tetra-octahedral 76=4*19 -> 3*76=228,
         // glutamate anion 77=7*11, ENIG gold plating 79=Z(Au), and 81 = 72 + 9 = 3^4):
-        var full81 = CuboctahedronAutomatonKernel.ComputeBench81HeisenbergClassClosure9();
+        var full81 = KitchenBenchDigitalTwin.ComputeBench81HeisenbergClassClosure9();
         Assert.Equal(new Ring9(73), full81.FrameRadius73Mm);
         Assert.Equal(new Ring9(74), full81.Optocoupler74Ns);
         Assert.Equal(new Ring9(75), full81.CollagenGate75);
@@ -824,7 +824,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 97-Section M_hat(3) = 9^2 + 4^2 = 97 Full Self-Closure (Numbers 82..97:
         // total thermal lag ladder 83..89..91, polystyrene total lag 96 = 89 + 7, and 97 = 81 + 16):
-        var full97 = CuboctahedronAutomatonKernel.ComputeBench97GaussianModulusClosure9();
+        var full97 = KitchenBenchDigitalTwin.ComputeBench97GaussianModulusClosure9();
         Assert.Equal(new Ring9(83), full97.HotTotalLag83);
         Assert.Equal(new Ring9(84), full97.MidTotalLag84);
         Assert.Equal(new Ring9(85), full97.Lag20Min85);
@@ -839,7 +839,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Verify 128-Section Q_square(3) = 128 Quarter-Ring Saddle Full Self-Closure (Numbers 98..128:
         // Wheeler prime 101, Kok oxo / I2 106, collapse odd current S_3(139) = 117 = 9*13,
         // meniscus-Fresnel 119 = 7*17, Kok S3 flash 123 = 3*41, Peltier 127, and 128 = Q_square):
-        var full128 = CuboctahedronAutomatonKernel.ComputeBench128QuarterRingSaddleClosure9();
+        var full128 = KitchenBenchDigitalTwin.ComputeBench128QuarterRingSaddleClosure9();
         Assert.Equal(new Ring9(101), full128.WheelerPrime101);
         Assert.Equal(new Ring9(106), full128.KokOxoIodine106);
         Assert.Equal(new Ring9(117), full128.CollapseOddCurrent117);
@@ -852,7 +852,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Verify 147-Section |B_3(3)| = 3 * 7^2 = 147 Three-Shell Ball Full Self-Closure (Numbers 129..147:
         // meniscus gate 129, ordered pairs / 6 CO2 / 12-beam collapse sum 132 = 12*11, Cs-133 mass 133 = 7*19 = 55+78,
         // alpha_FS^-1 floor 137 = 128+9, collapse phase 139, palmitic lipid 144 = 12^2, and 147 = |B_3(3)|):
-        var full147 = CuboctahedronAutomatonKernel.ComputeBench147ThreeShellBallClosure9();
+        var full147 = KitchenBenchDigitalTwin.ComputeBench147ThreeShellBallClosure9();
         Assert.Equal(new Ring9(129), full147.MeniscusGate129);
         Assert.Equal(new Ring9(132), full147.OrderedPairs132);
         Assert.Equal(new Ring9(133), full147.Cesium133Mass);
@@ -871,7 +871,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // 7^3 = 343, 12-coil copper 348 = 12*29, oxidation phase 352 = 256 + 96 -> C_3(352) = -32,
         // cutoff 354 K = 81 + 273, full circle 360 = 2*180, boiling water 373 K = 256 + 117, Euler pole 384 = 3*128,
         // wire diameter 400 = 20^2 um, Gaussian Bezout 97*417 == 1 (mod 512), Soret 418 nm, 12-beam Bus36 432 = 12*36, and blue LED 441 = 21^2):
-        var full441 = CuboctahedronAutomatonKernel.ComputeBench441BlueLedMultiscaleClosure9();
+        var full441 = KitchenBenchDigitalTwin.ComputeBench441BlueLedMultiscaleClosure9();
         Assert.Equal(new Ring9(164), full441.KokS4Flash164);
         Assert.Equal(-(Ring9.DInSquare * Ring9.ModBits), full441.KokS4Flash164.ProjC);
         Assert.Equal(new Ring9(169), full441.CoreSquare169);
@@ -918,7 +918,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
         // Schottky decay end 499 = 256 + 243 = 512 - 13, 500 mm twisted pair = 20*25 = 512 - 12,
         // 4*127 Peltier couples = 508 = 256 + 252, E24 gate resistor 510 = 30*17 = 512 - 2,
         // Ring9.MinusOne = 511 = 7*73, and full ring period 512 = Bus36(0, 1, 0, 0)):
-        var full512 = CuboctahedronAutomatonKernel.ComputeBench512FullRingMultiscaleClosure9();
+        var full512 = KitchenBenchDigitalTwin.ComputeBench512FullRingMultiscaleClosure9();
         Assert.Equal(new Ring9(444), full512.TwelveTickScan444Ns);
         Assert.Equal(new Ring9(448), full512.SevenMeniscusKp448);
         Assert.Equal(new Ring9(456), full512.DoubleFpgaDrive456);
@@ -943,7 +943,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 587-Section Consecutive 587x Coherent Cuboctahedron Barrier Collapse (513..587 = 512 + 75)
         // and Complete Multiscale Optical, Spinor, Electrical, Acoustic, and Crystal Hierarchy on Bus36:
-        var full587 = CuboctahedronAutomatonKernel.ComputeBench587BarrierCollapseMultiscaleClosureBus36();
+        var full587 = KitchenBenchDigitalTwin.ComputeBench587BarrierCollapseMultiscaleClosureBus36();
         Assert.Equal(new Bus36(Ring9.MuVac, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.SecondTurnStart513);
         Assert.Equal(new Bus36(Ring9.NSq, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.FourteenFaceScan518Ns);
         Assert.Equal(new Bus36(Ring9.NTri, Ring9.MuVac, Ring9.Zero, Ring9.Zero), full587.DoubleAtp520);
@@ -981,7 +981,7 @@ public class GuidersPhysicsSuiteTests(Xunit.Abstractions.ITestOutputHelper outpu
 
         // Verify 1025-Section Consecutive Two-Turn Verlet Spinor Period (1024 = 2 * 512)
         // and Gate-Heisenberg Bezout Return Identity (1025 = 25 * 41 = 2 * 512 + 1) Closure on Bus36 (588..1025):
-        var full1025 = CuboctahedronAutomatonKernel.ComputeBench1025TwoTurnVerletBezoutConsecutiveClosureBus36();
+        var full1025 = KitchenBenchDigitalTwin.ComputeBench1025TwoTurnVerletBezoutConsecutiveClosureBus36();
         Assert.Equal(new Bus36(new Ring9(76), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveBeamsMujoco588);
         Assert.Equal(new Bus36(new Ring9(88), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.TwelveBeamsTin600);
         Assert.Equal(new Bus36(new Ring9(89), Ring9.MuVac, Ring9.Zero, Ring9.Zero), full1025.SecondTurnColdLag601);
