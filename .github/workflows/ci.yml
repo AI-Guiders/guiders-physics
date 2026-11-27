@@ -10,7 +10,7 @@ on:
 jobs:
   build-and-test:
     name: Build & Test Guiders Physics (.NET 11)
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
