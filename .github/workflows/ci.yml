@@ -1,0 +1,28 @@
+name: Guiders Physics (.NET 11) CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build & Test Guiders Physics (.NET 11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 11 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "11.0.x"
+          dotnet-quality: "preview"
+
+      - name: Build solution
+        run: dotnet build AIGuiders.Physics.slnx -c Release
+
+      - name: Run xUnit tests
+        run: dotnet test AIGuiders.Physics.slnx -c Release --no-build
